@@ -25,7 +25,7 @@ def train(args):
     checkpoint = tf.train.Checkpoint(model=model, step=tf.Variable(0))
     checkpoint_manager = tf.train.CheckpointManager(checkpoint, args.savedmodel_path, args.max_to_keep)
     restored_ckpt = tf.train.latest_checkpoint(args.pretrain_model_dir)
-    checkpoint.restore(restored_ckpt)
+    checkpoint.restore(restored_ckpt).expect_partial()
     if checkpoint_manager.latest_checkpoint:
         logging.info("Restored from {}".format(checkpoint_manager.latest_checkpoint))
     else:
