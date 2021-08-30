@@ -135,7 +135,7 @@ class MultiModal(Model):
 
         # vision_embedding = tf.concat([vision_embedding_1, vision_embedding_2], 0)
         # bert_embedding = tf.concat([bert_embedding_1, bert_embedding_2], 0)
-        predictions_2 = self.classifier(final_embedding_2)
+        # predictions_2 = self.classifier(final_embedding_2)
         return final_embedding_1, final_embedding_2, predictions_1, predictions_2
 
     def get_variables(self):
