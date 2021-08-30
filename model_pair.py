@@ -123,6 +123,7 @@ class MultiModal(Model):
         vision_embedding_1 = self.nextvlad([inputs['frames_1'], frame_num_1])
         vision_embedding_1 = vision_embedding_1 * tf.cast(tf.expand_dims(frame_num_1, -1) > 0, tf.float32)
         final_embedding_1 = self.fusion([vision_embedding_1, bert_embedding_1])
+        predictions_1 = self.classifier(final_embedding_1)
 
         bert_embedding_2 = self.bert([inputs['input_ids_2'], inputs['mask_2']])[1]
         bert_embedding_2 = self.bert_map(bert_embedding_2)
@@ -130,10 +131,12 @@ class MultiModal(Model):
         vision_embedding_2 = self.nextvlad([inputs['frames_2'], frame_num_2])
         vision_embedding_2 = vision_embedding_2 * tf.cast(tf.expand_dims(frame_num_2, -1) > 0, tf.float32)
         final_embedding_2 = self.fusion([vision_embedding_2, bert_embedding_2])
-        # predictions = self.classifier(final_embedding_1)
-        vision_embedding = tf.concat([vision_embedding_1, vision_embedding_2], 0)
-        bert_embedding = tf.concat([bert_embedding_1, bert_embedding_2], 0)
-        return final_embedding_1, final_embedding_2, vision_embedding, bert_embedding
+        predictions_2 = self.classifier(final_embedding_2)
+
+        # vision_embedding = tf.concat([vision_embedding_1, vision_embedding_2], 0)
+        # bert_embedding = tf.concat([bert_embedding_1, bert_embedding_2], 0)
+        predictions_2 = self.classifier(final_embedding_2)
+        return final_embedding_1, final_embedding_2, predictions_1, predictions_2
 
     def get_variables(self):
         if not self.all_variables_1:  # is None, not initialized
