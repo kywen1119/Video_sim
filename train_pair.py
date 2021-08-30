@@ -65,7 +65,7 @@ def train(args):
         label_sims = inputs['sim']
         labels_1 = inputs['labels_1']
         labels_2 = inputs['labels_2']
-        final_embedding_1, final_embedding_2, predictions_1, predictions_2 = model(inputs, training=True)
+        final_embedding_1, final_embedding_2, predictions_1, predictions_2 = model(inputs, training=False)
         final_embedding_1 = tf.math.l2_normalize(final_embedding_1, axis=1)
         final_embedding_2 = tf.math.l2_normalize(final_embedding_2, axis=1)
         sim = tf.reduce_sum(final_embedding_1 * final_embedding_2, axis=1)
