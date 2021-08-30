@@ -132,7 +132,7 @@ class MultiModal(Model):
             self.bert_variables = self.bert.trainable_variables
             self.num_bert = len(self.bert_variables)
             self.normal_variables = self.nextvlad.trainable_variables + self.fusion.trainable_variables + \
-                                    self.classifier.trainable_variables
+                                    self.classifier.trainable_variables + self.bert_map.trainable_variables # 这个之前忘记加了
             self.all_variables = self.bert_variables + self.normal_variables
         return self.all_variables
 
