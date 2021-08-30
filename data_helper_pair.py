@@ -6,6 +6,7 @@ import tensorflow as tf
 from sklearn.preprocessing import MultiLabelBinarizer
 from tensorflow.python.data.ops.dataset_ops import AUTOTUNE
 from transformers import BertTokenizer
+from config_pair import parser
 
 
 class FeatureParser:
@@ -113,9 +114,17 @@ class FeatureParser:
 def create_datasets(args):
     train_files = glob.glob(args.train_record_pattern)
     val_files = glob.glob(args.val_record_pattern)
-
+    print(train_files)
     parser = FeatureParser(args)
     train_dataset = parser.create_dataset(train_files, training=True, batch_size=args.batch_size)
     val_dataset = parser.create_dataset(val_files, training=False, batch_size=args.val_batch_size)
 
     return train_dataset, val_dataset
+
+
+if __name__ == '__main__':
+    args = parser.parse_args()
+    train_dataset, val_dataset = create_datasets(args)
+    for i in train_dataset:
+        print(i)
+        break

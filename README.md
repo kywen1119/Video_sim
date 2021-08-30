@@ -34,3 +34,9 @@ python inference.py
 python evaluate.py
 ```
 
+#### *. useful ways
+1. pretrain the model with multi-label classification with the tag_id
+2. change original bert to chinese_roberta_wwm_ext
+3. add image&text contrastive loss during pre-training
+4. finetune the model using the label.tsv pair infomation
+

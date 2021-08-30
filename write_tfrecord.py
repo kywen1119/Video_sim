@@ -61,12 +61,12 @@ random.seed(42)
 random.shuffle(all_pair_data)
 # print(all_pair_data[:10])
 val_pair_data = all_pair_data[:6000]
-train_pair_data = all_pair_data[6000:]
+train_pair_data = all_pair_data[:]
 
 from tqdm import tqdm
 
 def write_tfrecord(pair_datas, split):
-    write_path = 'data/pairwise/0-5999val/'+split+'.tfrecord'
+    write_path = 'data/pairwise/trainall/'+split+'.tfrecord'
     writer = tf.io.TFRecordWriter(write_path) 
     for pair_data in tqdm(pair_datas): # [id_1, id_2, sim] [str, str, float]
         id_1, id_2, sim = pair_data

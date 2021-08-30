@@ -10,6 +10,7 @@ from metrics_pair import Recorder
 from model_pair import MultiModal
 import numpy as np
 from scipy.stats import spearmanr
+from cqrtrain import contrastive_loss
 
 
 def MSE(sim, label):
@@ -19,66 +20,69 @@ def MSE(sim, label):
 def train(args):
     # 1. create dataset and set num_labels to args
     train_dataset, val_dataset = create_datasets(args)
+    print(train_dataset)
     # 2. build model
     model = MultiModal(args)
     # 3. save checkpoints
-    checkpoint = tf.train.Checkpoint(model=model, step=tf.Variable(0))
+    checkpoint = tf.train.Checkpoint(model=model, step_1=tf.Variable(0))
     checkpoint_manager = tf.train.CheckpointManager(checkpoint, args.savedmodel_path, args.max_to_keep)
     restored_ckpt = tf.train.latest_checkpoint(args.pretrain_model_dir)
     checkpoint.restore(restored_ckpt).expect_partial()
-    if checkpoint_manager.latest_checkpoint:
-        logging.info("Restored from {}".format(checkpoint_manager.latest_checkpoint))
+    if restored_ckpt:
+        logging.info("Restored from {}".format(restored_ckpt))
     else:
         logging.info("Initializing from scratch.")
     # 4. create loss_object and recorders
     loss_object = MSE
     train_recorder, val_recorder = Recorder(), Recorder()
 
-    # 5. define train and valid step function
+    # 5. define train and valid step_1 function
     @tf.function
-    def train_step(inputs):
+    def train_step_1(inputs):
         label_sims = inputs['sim']
         with tf.GradientTape() as tape:
-            final_embedding_1, final_embedding_2 = model(inputs, training=True)
+            final_embedding_1, final_embedding_2, vision_embedding, bert_embedding = model(inputs, training=True)
             final_embedding_1 = tf.math.l2_normalize(final_embedding_1, axis=1)
             final_embedding_2 = tf.math.l2_normalize(final_embedding_2, axis=1)
             sim = tf.reduce_sum(final_embedding_1 * final_embedding_2, axis=1)
-            loss = loss_object(sim, label_sims)
+            loss_0 = loss_object(sim, label_sims)
+            #loss_1 = contrastive_loss(vision_embedding, bert_embedding) * 5.0
+            loss_1 = 0
+            loss = loss_0 #+ loss_1
         gradients = tape.gradient(loss, model.get_variables())
         model.optimize(gradients)
-        train_recorder.record(loss)
+        train_recorder.record(loss, loss_0, loss_1)
 
     @tf.function
-    def val_step(inputs):
-        vids = inputs['vid']
+    def val_step_1(inputs):
+        vids_1 = inputs['vid_1']
+        vids_2 = inputs['vid_2']
         label_sims = inputs['sim']
-        final_embedding_1, final_embedding_2 = model(inputs, training=True)
+        final_embedding_1, final_embedding_2, vision_embedding, bert_embedding = model(inputs, training=True)
         final_embedding_1 = tf.math.l2_normalize(final_embedding_1, axis=1)
         final_embedding_2 = tf.math.l2_normalize(final_embedding_2, axis=1)
         sim = tf.reduce_sum(final_embedding_1 * final_embedding_2, axis=1)
-        loss = loss_object(sim, label_sims)
-        val_recorder.record(loss)
-        return vids, sim, label_sims
-
+        loss_0 = loss_object(sim, label_sims)
+        #loss_1 = contrastive_loss(vision_embedding, bert_embedding) * 10.0
+        loss_1 = 0
+        loss = loss_0# + loss_1
+        val_recorder.record(loss, loss_0, loss_1)
+        return vids_1, sim, label_sims
+    # import pdb;pdb.set_trace()
     # 6. training
     for epoch in range(args.start_epoch, args.epochs):
         for train_batch in train_dataset:
-            checkpoint.step.assign_add(1)
-            step = checkpoint.step.numpy()
-            if step > args.total_steps:
-                break
-            train_step(train_batch)
-            if step % args.print_freq == 0:
-                train_recorder.log(epoch, step)
-                train_recorder.reset()
 
-            # 7. validation
-            if step % args.eval_freq == 0:
+            checkpoint.step_1.assign_add(1)
+            step_1 = checkpoint.step_1.numpy()
+            # tf.print(step_1)
+
+            if step_1 == 2:
                 vids_ = []
                 sims_ = []
                 label_sims_ = []
                 for val_batch in val_dataset:
-                    vids, sims, label_sims = val_step(val_batch)
+                    vids, sims, label_sims = val_step_1(val_batch)
                     for vid, sim, label_sim in zip(vids.numpy(), sims.numpy(), label_sims.numpy()):
                         vids_.append(vid.decode('utf-8'))
                         sims_.append(sim)
@@ -86,12 +90,53 @@ def train(args):
                 vids_, sims_, label_sims_ = np.array(vids_), np.array(sims_), np.array(label_sims_)
                 # 8. test spearman correlation
                 spearman = spearmanr(sims_, label_sims_)[0]
-                val_recorder.log(epoch, step, prefix='Validation result is: ', suffix=f', spearmanr {spearman:.4f}')
+                val_recorder.log(epoch, step_1, prefix='Validation result is: ', suffix=f', spearmanr {spearman:.4f}')
+                val_recorder.reset()
+
+            # tf.print(args.total_steps)
+            if step_1 > args.total_steps:
+                break
+            train_step_1(train_batch)
+            if step_1 % args.print_freq == 0:
+                train_recorder.log(epoch, step_1)
+                train_recorder.reset()
+
+            # 7. validation
+            if step_1 % args.eval_freq == 0:
+                vids_ = []
+                sims_ = []
+                label_sims_ = []
+                for val_batch in val_dataset:
+                    vids, sims, label_sims = val_step_1(val_batch)
+                    for vid, sim, label_sim in zip(vids.numpy(), sims.numpy(), label_sims.numpy()):
+                        vids_.append(vid.decode('utf-8'))
+                        sims_.append(sim)
+                        label_sims_.append(label_sim)
+                vids_, sims_, label_sims_ = np.array(vids_), np.array(sims_), np.array(label_sims_)
+                # 8. test spearman correlation
+                spearman = spearmanr(sims_, label_sims_)[0]
+                val_recorder.log(epoch, step_1, prefix='Validation result is: ', suffix=f', spearmanr {spearman:.4f}')
                 val_recorder.reset()
 
                 # 9. save checkpoints
                 if spearman > 0.45:
-                    checkpoint_manager.save(checkpoint_number=step)
+                    checkpoint_manager.save(checkpoint_number=step_1)
+    # last step
+    vids_ = []
+    sims_ = []
+    label_sims_ = []
+    for val_batch in val_dataset:
+        vids, sims, label_sims = val_step_1(val_batch)
+        for vid, sim, label_sim in zip(vids.numpy(), sims.numpy(), label_sims.numpy()):
+            vids_.append(vid.decode('utf-8'))
+            sims_.append(sim)
+            label_sims_.append(label_sim)
+    vids_, sims_, label_sims_ = np.array(vids_), np.array(sims_), np.array(label_sims_)
+    # 8. test spearman correlation
+    spearman = spearmanr(sims_, label_sims_)[0]
+    val_recorder.log(epoch, step_1, prefix='Validation result is: ', suffix=f', spearmanr {spearman:.4f}')
+    val_recorder.reset()
+    checkpoint_manager.save(checkpoint_number=step_1)
 
 
 def main():
