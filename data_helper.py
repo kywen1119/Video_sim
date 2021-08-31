@@ -6,6 +6,7 @@ import tensorflow as tf
 from sklearn.preprocessing import MultiLabelBinarizer
 from tensorflow.python.data.ops.dataset_ops import AUTOTUNE
 from transformers import BertTokenizer
+from config import parser
 
 
 class FeatureParser:
@@ -74,12 +75,21 @@ class FeatureParser:
         labels.set_shape([self.num_labels])
         return labels
 
+    def _parse_category(self, category_id):
+        category_id = str(category_id.numpy())
+        id_1 = int(category_id[1:3])
+        if id_1 > 37:
+            id_1 = id_1 - 2
+        id_2 = int(category_id[3:])
+        return id_1, id_2
+
     def parse(self, features):
         input_ids, mask = self._parse_title(features['title'])
         frames, num_frames = self._parse_frames(features['frame_feature'])
         labels = self._parse_labels(features['tag_id'])
+        category_id_1, category_id_2 = tf.py_function(self._parse_category, [features['category_id']], [tf.int8, tf.int8])
         return {'input_ids': input_ids, 'mask': mask, 'frames': frames, 'num_frames': num_frames,
-                'vid': features['id'], 'labels': labels}
+                'vid': features['id'], 'labels': labels, 'category_id_1': category_id_1, 'category_id_2': category_id_2}
 
     def create_dataset(self, files, training, batch_size):
         if training:
@@ -88,7 +98,8 @@ class FeatureParser:
         feature_map = {'id': tf.io.FixedLenFeature([], tf.string),
                        'title': tf.io.FixedLenFeature([], tf.string),
                        'frame_feature': tf.io.VarLenFeature(tf.string),
-                       'tag_id': tf.io.VarLenFeature(tf.int64)}
+                       'tag_id': tf.io.VarLenFeature(tf.int64),
+                       'category_id': tf.io.FixedLenFeature([], tf.int64)}
         dataset = dataset.map(lambda x: tf.io.parse_single_example(x, feature_map), num_parallel_calls=AUTOTUNE)
         if training:
             dataset = dataset.shuffle(buffer_size=batch_size * 8)
@@ -107,3 +118,11 @@ def create_datasets(args):
     val_dataset = parser.create_dataset(val_files, training=False, batch_size=args.val_batch_size)
 
     return train_dataset, val_dataset
+
+
+if __name__ == '__main__':
+    args = parser.parse_args()
+    train_dataset, val_dataset = create_datasets(args)
+    for i in train_dataset:
+        print(i['category_id_1'], i['category_id_2'])
+        break
