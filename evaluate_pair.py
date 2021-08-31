@@ -25,7 +25,7 @@ def main(args):
     dataset = feature_parser.create_dataset(files, training=False, batch_size=args.test_batch_size)
     model = MultiModal(args)
     checkpoint = tf.train.Checkpoint(model=model)
-    checkpoint.restore(args.ckpt_file)
+    checkpoint.restore(args.ckpt_file).expect_partial()
     print(f"Restored from {args.ckpt_file}")
     vids_ = []
     sims_ = []
