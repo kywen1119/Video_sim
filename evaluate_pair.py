@@ -1,7 +1,7 @@
 import tensorflow as tf
 
 from config_pair import parser
-from data_helper_pair import feature_parser
+from data_helper_pair import FeatureParser
 from model_pair import MultiModal
 import numpy as np
 from scipy.stats import spearmanr
