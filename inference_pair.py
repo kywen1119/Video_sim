@@ -12,7 +12,7 @@ from cqrmodel import MultiModal
 def main():
     args = parser.parse_args()
     feature_parser = FeatureParser(args)
-    files = 'data/pairwise/pairwise.tfrecords'#args.test_a_file
+    files = args.test_a_file
     dataset = feature_parser.create_dataset(files, training=False, batch_size=args.test_batch_size)
     model = MultiModal(args)
     checkpoint = tf.train.Checkpoint(model=model)
