@@ -21,6 +21,7 @@ def val_step_1(inputs, model):
 
 def main(args):
     files = args.val_record_pattern
+    feature_parser = FeatureParser(args)
     dataset = feature_parser.create_dataset(files, training=False, batch_size=args.test_batch_size)
     model = MultiModal(args)
     checkpoint = tf.train.Checkpoint(model=model)
