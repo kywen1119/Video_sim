@@ -66,8 +66,8 @@ def train(args):
             loss_0 = loss_object(labels, predictions) * labels.shape[-1]  # convert mean back to sum
             loss_1 = contrastive_loss(vision_embedding, bert_embedding) * 10.0
             loss_cate_1 = loss_object_1(labels_cate_1, pre_cate_1) * 10.0#* labels.shape[-1]
-            loss_cate_2 = loss_object_1(labels_cate_2, pre_cate_2) * 10.0#* labels.shape[-1]
-            loss = loss_0 + loss_1 + loss_cate_1 + loss_cate_2
+            loss_cate_2 = 0#loss_object_1(labels_cate_2, pre_cate_2) * 10.0#* labels.shape[-1]
+            loss = loss_0 + loss_1 + loss_cate_1 #+ loss_cate_2
         gradients = tape.gradient(loss, model.get_variables())
         model.optimize(gradients)
         train_recorder.record(loss, loss_0, loss_1, loss_cate_1, loss_cate_2, labels, predictions, labels_cate_1, pre_cate_1, labels_cate_2, pre_cate_2)
@@ -82,8 +82,8 @@ def train(args):
         loss_0 = loss_object(labels, predictions) * labels.shape[-1]  # convert mean back to sum
         loss_1 = contrastive_loss(vision_embedding, bert_embedding) * 10.0
         loss_cate_1 = loss_object_1(labels_cate_1, pre_cate_1) * 10.0#* labels.shape[-1]
-        loss_cate_2 = loss_object_1(labels_cate_2, pre_cate_2) * 10.0#* labels.shape[-1]
-        loss = loss_0 + loss_1 + loss_cate_1 + loss_cate_2
+        loss_cate_2 = 0#loss_object_1(labels_cate_2, pre_cate_2) * 10.0#* labels.shape[-1]
+        loss = loss_0 + loss_1 + loss_cate_1 #+ loss_cate_2
         val_recorder.record(loss, loss_0, loss_1, loss_cate_1, loss_cate_2, labels, predictions, labels_cate_1, pre_cate_1, labels_cate_2, pre_cate_2)
         return vids, embeddings
 
