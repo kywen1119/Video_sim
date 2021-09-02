@@ -10,7 +10,7 @@ import numpy
 import tensorflow as tf
 from absl import logging
 
-from utils import get_shape_list, create_initializer, clip_inf, \
+from layers.utils import get_shape_list, create_initializer, clip_inf, \
     gather_indexes
 # from archer import compat  todo make show it's not needed
 

@@ -1,8 +1,8 @@
 import tensorflow as tf
 
-from utils import create_initializer, get_shape_list, \
+from layers.utils import create_initializer, get_shape_list, \
   reshape_to_matrix, transpose_for_attention_dot
-from algebra_layer import dot_attention_prob, get_activation
+from layers.algebra_layer import dot_attention_prob, get_activation
 
 
 # pylint: disable=too-many-instance-attributes,too-few-public-methods

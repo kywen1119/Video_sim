@@ -13,7 +13,7 @@ parser.add_argument('--test-a-file', type=str, default='data/test_a/test_a.tfrec
 parser.add_argument('--test-b-file', type=str, default='data/test_b/test_b.tfrecords')
 parser.add_argument('--output-json', type=str, default='result.json')
 parser.add_argument('--output-zip', type=str, default='result_pair.zip')
-parser.add_argument('--batch-size', default=32, type=int)
+parser.add_argument('--batch-size', default=256, type=int)
 parser.add_argument('--val-batch-size', default=32, type=int)
 parser.add_argument('--test-batch-size', default=32, type=int)
 
@@ -23,7 +23,7 @@ parser.add_argument('--eval-freq', default=1000, type=int, help='evaluation step
 
 # ======================== SavedModel Configs =========================
 parser.add_argument('--resume-training', default=0, type=int, help='resume training from checkpoints')
-parser.add_argument('--savedmodel-path', type=str, default='save/pair_test')
+parser.add_argument('--savedmodel-path', type=str, default='save/pair_tf')
 parser.add_argument('--ckpt-file', type=str, default='save/diao/ckpt-40000')
 parser.add_argument('--max-to-keep', default=10, type=int, help='the number of checkpoints to keep')
 parser.add_argument('--start-epoch', default=0, type=int, help='manual epoch number (useful on restarts)')

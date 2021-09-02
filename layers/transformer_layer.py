@@ -1,12 +1,12 @@
 from absl import logging
 import tensorflow as tf
 
-from utils import get_shape_list, reshape_from_matrix, \
+from layers.utils import get_shape_list, reshape_from_matrix, \
     reshape_to_matrix, create_initializer, get_layer_share_mapping, \
     conditional_jit_scope, get_int_shape
 
-from attention_layer import BasicAttentionLayer
-from algebra_layer import TransformerFFN, LayerProcess
+from layers.attention_layer import BasicAttentionLayer
+from layers.algebra_layer import TransformerFFN, LayerProcess
 
 
 # from archer.ft.faster_transformer import use_ft_ops, ft_bert_input, \
