@@ -92,8 +92,8 @@ def train(args):
             step = checkpoint.step.numpy()
             if step > args.total_steps:
                 break
-            if step == 1:
-                evaluate(val_dataset, model, val_recorder, epoch, step, args)
+            # if step == 1:
+            #     evaluate(val_dataset, model, val_recorder, epoch, step, args)
             train_step(train_batch)
             if step % args.print_freq == 0:
                 train_recorder.log(epoch, step)
