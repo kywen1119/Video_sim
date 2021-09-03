@@ -144,6 +144,7 @@ class BasicAttentionLayer(tf.keras.layers.Layer):
     value_output = self.value_layer(to_tensor_2d, **kwargs)
 
     # `query_output` = [B, N, F, H]
+    # tf.print(query_output.shape,batch_size)
     query_output = transpose_for_attention_dot(
       query_output, batch_size, self.num_attention_heads,
       from_seq_length, self.size_per_head)

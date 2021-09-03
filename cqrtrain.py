@@ -54,6 +54,24 @@ def train(args):
     loss_object = tf.keras.losses.BinaryCrossentropy(reduction=tf.keras.losses.Reduction.NONE)
     train_recorder, val_recorder = Recorder(), Recorder()
 
+    # input_template = {
+    #     "input_ids": tf.keras.layers.Input(
+    #         shape=[args.bert_seq_length], batch_size=args.batch_size, dtype=tf.int64),
+    #     "mask": tf.keras.layers.Input(
+    #         shape=[args.bert_seq_length], batch_size=args.batch_size, dtype=tf.int64),
+    #     'frames': tf.keras.layers.Input(
+    #         shape=[args.max_frames, args.frame_embedding_size], batch_size=args.batch_size, dtype=tf.float32),
+    #     'num_frames': tf.keras.layers.Input(
+    #         shape=[], batch_size=args.batch_size, dtype=tf.int64),
+    #     'vid': tf.keras.layers.Input(
+    #         shape=[], batch_size=args.batch_size, dtype=tf.string),
+    #     'labels': tf.keras.layers.Input(
+    #         shape=[args.num_labels], batch_size=args.batch_size, dtype=tf.int64)
+    # }
+    # outputs_template = model(input_template)
+    # eval_custom_model = MultiModal(args)
+    # eval_outputs_template = eval_custom_model(input_template)
+    # logging.info("Eval model outputs: {}.".format(eval_outputs_template))
     # 5. define train and valid step function
     @tf.function
     def train_step(inputs):
@@ -67,17 +85,6 @@ def train(args):
         model.optimize(gradients)
         train_recorder.record(loss, loss_0, loss_1, labels, predictions)
 
-    @tf.function
-    def val_step(inputs):
-        vids = inputs['vid']
-        labels = inputs['labels']
-        predictions, embeddings, vision_embedding, bert_embedding = model(inputs, training=False)
-        loss_0 = loss_object(labels, predictions) * labels.shape[-1]  # convert mean back to sum
-        loss_1 = contrastive_loss(vision_embedding, bert_embedding) *10.0
-        loss = loss_0 + loss_1
-        val_recorder.record(loss,loss_0, loss_1, labels, predictions)
-        return vids, embeddings
-
     # 6. training
     for epoch in range(args.start_epoch, args.epochs):
         for train_batch in train_dataset:
@@ -85,6 +92,8 @@ def train(args):
             step = checkpoint.step.numpy()
             if step > args.total_steps:
                 break
+            if step == 1:
+                evaluate(val_dataset, model, val_recorder, epoch, step, args)
             train_step(train_batch)
             if step % args.print_freq == 0:
                 train_recorder.log(epoch, step)
@@ -92,21 +101,36 @@ def train(args):
 
             # 7. validation
             if step % args.eval_freq == 0:
-                vid_embedding = {}
-                for val_batch in val_dataset:
-                    vids, embeddings = val_step(val_batch)
-                    for vid, embedding in zip(vids.numpy(), embeddings.numpy()):
-                        vid = vid.decode('utf-8')
-                        vid_embedding[vid] = embedding
-                # 8. test spearman correlation
-                spearmanr = test_spearmanr(vid_embedding, args.annotation_file)
-                val_recorder.log(epoch, step, prefix='Validation result is: ', suffix=f', spearmanr {spearmanr:.4f}')
-                val_recorder.reset()
-
+                spearmanr = evaluate(val_dataset, model, val_recorder, epoch, step, args)
                 # 9. save checkpoints
                 if spearmanr > 0.45:
                     checkpoint_manager.save(checkpoint_number=step)
 
+@tf.function
+def val_step(inputs, model, val_recorder):
+    vids = inputs['vid']
+    # tf.print(vids.shape)
+    labels = inputs['labels']
+    predictions, embeddings, vision_embedding, bert_embedding = model(inputs, training=False)
+    loss_object = tf.keras.losses.BinaryCrossentropy(reduction=tf.keras.losses.Reduction.NONE)
+    loss_0 = loss_object(labels, predictions) * labels.shape[-1]  # convert mean back to sum
+    loss_1 = contrastive_loss(vision_embedding, bert_embedding) *10.0
+    loss = loss_0 + loss_1
+    val_recorder.record(loss,loss_0, loss_1, labels, predictions)
+    return vids, embeddings
+
+def evaluate(val_dataset, model, val_recorder, epoch, step, args):
+    vid_embedding = {}
+    for val_batch in val_dataset:
+        vids, embeddings = val_step(val_batch, model, val_recorder)
+        for vid, embedding in zip(vids.numpy(), embeddings.numpy()):
+            vid = vid.decode('utf-8')
+            vid_embedding[vid] = embedding
+    # 8. test spearman correlation
+    spearmanr = test_spearmanr(vid_embedding, args.annotation_file)
+    val_recorder.log(epoch, step, prefix='Validation result is: ', suffix=f', spearmanr {spearmanr:.4f}')
+    val_recorder.reset()
+    return spearmanr
 
 def main():
     logging.basicConfig(level=logging.DEBUG,

@@ -2,7 +2,8 @@ import tensorflow as tf
 import numpy as np
 from tensorflow.python.keras.models import Model
 from transformers import TFBertModel, create_optimizer
-from layers.transformer_layer import TransformerEncoder
+# from layers.transformer_layer import TransformerEncoder
+from model_transformer import Transformer_Encoder
 
 
 class NeXtVLAD(tf.keras.layers.Layer):
@@ -67,50 +68,64 @@ class NeXtVLAD(tf.keras.layers.Layer):
         return vlad
 
 
-def get_angles(pos, i, d_model):
-    # 获得sin内部的值 (pos / 10000 ^ 2i/d_model)
-    # i索引是embedding维度的索引
-    # pos是seq_len维度的位置
-    # 这里传进来的i不是i本身 而是2i或者2i+1
-    # 所以下面做了一个 (2 * (i//2)) 操作
-    # 为了就是得到公式里的2i值
-    angle_rate = 1 / np.power(10000, (2 * (i // 2)) / np.float32(d_model))
-    return pos * angle_rate
+# def get_angles(pos, i, d_model):
+#     # 获得sin内部的值 (pos / 10000 ^ 2i/d_model)
+#     # i索引是embedding维度的索引
+#     # pos是seq_len维度的位置
+#     # 这里传进来的i不是i本身 而是2i或者2i+1
+#     # 所以下面做了一个 (2 * (i//2)) 操作
+#     # 为了就是得到公式里的2i值
+#     angle_rate = 1 / np.power(10000, (2 * (i // 2)) / np.float32(d_model))
+#     return pos * angle_rate
 
-def positional_encoding(position, d_model):
-    # 为了形成 [seq_len, d_model]矩阵 需要增加维度
-    angle_rads = get_angles(np.arange(position)[:, np.newaxis],
-                            np.arange(d_model)[np.newaxis, :],
-                            d_model)
-    # angle_rads shape: (seq_len, d_model) 其中seq_len就是position
+# def positional_encoding(position, d_model):
+#     # 为了形成 [seq_len, d_model]矩阵 需要增加维度
+#     angle_rads = get_angles(np.arange(position)[:, np.newaxis],
+#                             np.arange(d_model)[np.newaxis, :],
+#                             d_model)
+#     # angle_rads shape: (seq_len, d_model) 其中seq_len就是position
 
-    # apply sin to even indices in the array; 2i
-    # 将 sin 应用于数组中的偶数索引（indices）；2i
-    angle_rads[:, 0::2] = np.sin(angle_rads[:, 0::2]) # 0::2 - start pos: 0, step:2
+#     # apply sin to even indices in the array; 2i
+#     # 将 sin 应用于数组中的偶数索引（indices）；2i
+#     angle_rads[:, 0::2] = np.sin(angle_rads[:, 0::2]) # 0::2 - start pos: 0, step:2
 
-    # apply cos to odd indices in the array; 2i+1
-    # 将 cos 应用于数组中的奇数索引；2i+1
-    angle_rads[:, 1::2] = np.cos(angle_rads[:, 1::2])
+#     # apply cos to odd indices in the array; 2i+1
+#     # 将 cos 应用于数组中的奇数索引；2i+1
+#     angle_rads[:, 1::2] = np.cos(angle_rads[:, 1::2])
 
-    pos_encoding = angle_rads[np.newaxis, ...]
+#     pos_encoding = angle_rads[np.newaxis, ...]
 
-    return tf.cast(pos_encoding, dtype=tf.float32)
+#     return tf.cast(pos_encoding, dtype=tf.float32)
 
 
 class Video_transformer(tf.keras.layers.Layer):
     def __init__(self, num_hidden_layers=1, output_size=1024, seq_len=32, dropout=0.2):
         super().__init__()
         self.fc = tf.keras.layers.Dense(output_size, activation='relu')
-        self.frame_tf_encoder = TransformerEncoder(hidden_size=output_size, num_hidden_layers=num_hidden_layers,
-                 num_attention_heads=8, intermediate_size=3072)
-        self.pos_encoding = positional_encoding(seq_len, output_size)
+        # self.frame_tf_encoder = TransformerEncoder(hidden_size=output_size, num_hidden_layers=num_hidden_layers,
+        #          num_attention_heads=8, intermediate_size=3072)
+        self.frame_tf_encoder = Transformer_Encoder(num_layers=num_hidden_layers,
+                                                   d_model=output_size,
+                                                   num_heads=4,
+                                                   dff=output_size * 4,
+                                                   seq_len=seq_len)
+        self.num_heads = 4
+        # self.pos_encoding = positional_encoding(seq_len, output_size)
 
     def call(self, inputs, **kwargs):
         image_embeddings, mask = inputs
+        _, num_segments, _ = image_embeddings.shape
+        if mask is not None:  # in case num of images is less than num_segments
+            image_mask = tf.sequence_mask(mask, maxlen=num_segments) # b,32
+            images_mask = tf.cast(tf.expand_dims(image_mask, -1), tf.float32) # b,32,1
+            image_embeddings = tf.multiply(image_embeddings, images_mask)
+        i_mask = tf.expand_dims(image_mask, 1) # b,1,32
+        i_mask = tf.expand_dims(i_mask, 1) # b,1,1,32
+        attention_mask = tf.cast(tf.tile(i_mask, [1,self.num_heads,num_segments,1]), tf.float32)
         image_embeddings = self.fc(image_embeddings)
-        image_embeddings += self.pos_encoding
-        all_layer_outputs, all_attention_probs = self.frame_tf_encoder(image_embeddings)
-        return all_layer_outputs[-1]
+        # image_embeddings += self.pos_encoding
+        x = self.frame_tf_encoder(image_embeddings, mask=attention_mask)
+        return x
 
 
 
@@ -173,7 +188,7 @@ class MultiModal(Model):
         frame_num = tf.reshape(inputs['num_frames'], [-1])
         vision_embedding = self.video_transformer([inputs['frames'], frame_num])
         vision_embedding = tf.reduce_max(vision_embedding, axis=1)
-        vision_embedding = vision_embedding * tf.cast(tf.expand_dims(frame_num, -1) > 0, tf.float32)
+        vision_embedding = vision_embedding * tf.cast(tf.expand_dims(frame_num, -1) > 0, tf.float32) # avoid videos which don't have frame features
         final_embedding = self.fusion([vision_embedding, bert_embedding])
         predictions = self.classifier(final_embedding)
 

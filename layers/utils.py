@@ -277,6 +277,8 @@ def transpose_for_attention_dot(input_tensor, batch_size, num_attention_heads,
     tf.Tensor: A float tensor of shape `[batch_size, num_attention_heads,
       seq_length, width]`.
   """
+  # tf.print(input_tensor.shape)
+  # tf.print(batch_size, seq_length, num_attention_heads, size_per_head)
   output_tensor = tf.reshape(
     input_tensor, [batch_size, seq_length, num_attention_heads, size_per_head])
 
