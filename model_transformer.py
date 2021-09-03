@@ -69,7 +69,7 @@ def scaled_dot_product_attention(q, k, v, mask=None):
     # add the mask to the scaled tensor.
     # -1e9的mask在softmax之后趋近0
     if mask is not None:
-        scaled_attention_logits += (mask * -1e9)
+        scaled_attention_logits += ((1.0-mask) * -1e9)
 
     # softmax is normalized on the last axis (seq_len_k) so that the scores add up to 1
     # 当 softmax 在 K 上进行归一化后，它的值决定了分配到 Q 的重要程度。
