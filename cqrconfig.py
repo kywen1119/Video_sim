@@ -3,7 +3,7 @@ import argparse
 parser = argparse.ArgumentParser(description="QQ Browser video embedding challenge")
 
 parser.add_argument('--dropout', type=float, default=0.2, help='dropout ratio')
-parser.add_argument('--multi-label-file', type=str, default='data/tag_list_over30.txt', help='supervised tag list')
+parser.add_argument('--multi-label-file', type=str, default='data/tag_list.txt', help='supervised tag list')
 
 # ========================= Dataset Configs ==========================
 parser.add_argument('--train-record-pattern', type=str, default='data/pointwise/*.tfrecords')
@@ -13,8 +13,8 @@ parser.add_argument('--test-a-file', type=str, default='data/test_a/test_a.tfrec
 parser.add_argument('--test-b-file', type=str, default='data/test_b/test_b.tfrecords')
 parser.add_argument('--output-json', type=str, default='result.json')
 parser.add_argument('--output-zip', type=str, default='result_pair.zip')
-parser.add_argument('--batch-size', default=256, type=int)
-parser.add_argument('--val-batch-size', default=32, type=int)
+parser.add_argument('--batch-size', default=64, type=int)
+parser.add_argument('--val-batch-size', default=64, type=int)
 parser.add_argument('--test-batch-size', default=32, type=int)
 
 # ========================= Monitor Configs ==========================
