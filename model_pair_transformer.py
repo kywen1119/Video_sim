@@ -166,8 +166,8 @@ class MultiModal(Model):
         frame_num_2 = tf.reshape(inputs['num_frames_2'], [-1])
         # vision_embedding_2 = self.nextvlad([inputs['frames_2'], frame_num_2])
         vision_embedding_2, images_mask_2 = self.video_transformer([inputs['frames_2'], frame_num_2])
-        super_neg_2 = images_mask_2 * -10000 # b, 32, 1
-        vision_embedding_2 = tf.reduce_max(vision_embedding_2 + super_neg_2, axis=1)
+        # super_neg_2 = images_mask_2 * -10000 # b, 32, 1
+        vision_embedding_2 = tf.reduce_max(vision_embedding_2, axis=1)
         vision_embedding_2 = vision_embedding_2 * tf.cast(tf.expand_dims(frame_num_2, -1) > 0, tf.float32)
         final_embedding_2 = self.fusion([vision_embedding_2, bert_embedding_2])
         predictions_2 = self.classifier(final_embedding_2)
