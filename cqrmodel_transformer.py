@@ -147,27 +147,28 @@ class Multimodal_transformer(tf.keras.layers.Layer):
 
     def call(self, inputs_frame, inputs_seq, **kwargs):
         image_embeddings, frame_mask = inputs_frame
-        text_embeddings, text_mask = inputs_seq
+        image_embeddings = self.frame_fc(image_embeddings)
+        video_tf_embedding, _ = self.video_transformer([image_embeddings, frame_mask])
+        text_embeddings, text_mask = inputs_seq # bert feature
         _, num_segments, _ = image_embeddings.shape
         _, num_words, _ = text_embeddings.shape
         if frame_mask is not None:  # in case num of images is less than num_segments
             image_mask = tf.sequence_mask(frame_mask, maxlen=num_segments) # b,32
             images_mask = tf.cast(tf.expand_dims(image_mask, -1), tf.float32) # b,32,1
-            image_embeddings = tf.multiply(image_embeddings, images_mask)
             i_mask = tf.expand_dims(image_mask, 1) # b,1,32
-            i_mask = tf.expand_dims(i_mask, 1) # b,1,1,32
+            i_mask = tf.cast(tf.expand_dims(i_mask, 1), tf.float32)  # b,1,1,32
         if text_mask is not None:
             texts_mask = tf.cast(tf.expand_dims(text_mask, -1), tf.float32) # b,32,1
-            t_mask = tf.expand_dims(texts_mask, 1) # b,1,32
-            t_mask = tf.expand_dims(t_mask, 1) # b,1,1,32
+            t_mask = tf.expand_dims(text_mask, 1) # b,1,32
+            t_mask = tf.cast(tf.expand_dims(t_mask, 1), tf.float32) # b,1,1,32
         mask = tf.concat([i_mask,t_mask], -1)
         attention_mask = tf.cast(tf.tile(mask, [1,self.num_heads,num_segments+num_words,1]), tf.float32)
-        image_embeddings = self.frame_fc(image_embeddings)
-        text_embeddings = self.frame_fc(text_embeddings)
-        embeddings = tf.concat([image_embeddings, text_embeddings], 1)
+        
+        text_embeddings = self.bert_fc(text_embeddings)
+        embeddings = tf.concat([video_tf_embedding, text_embeddings], 1)
         # image_embeddings += self.pos_encoding
-        x = self.frame_tf_encoder(embeddings, mask=attention_mask)
-        return x, 1.0-tf.concat([images_mask, texts_mask], 1)
+        x = self.tf_encoder(embeddings, mask=attention_mask)
+        return x, 1.0-tf.concat([images_mask, texts_mask], 1), tf.reduce_max(video_tf_embedding, axis=1), tf.reduce_max(text_embeddings, axis=1)
 
 
 
@@ -259,7 +260,7 @@ class MultiModal_JT(Model):
         self.bert = TFBertModel.from_pretrained(config.bert_dir)
         # self.nextvlad = NeXtVLAD(config.frame_embedding_size, config.vlad_cluster_size,
         #                          output_size=config.vlad_hidden_size, dropout=config.dropout)
-        self.transformer = Video_transformer(num_hidden_layers=1, output_size=config.vlad_hidden_size, 
+        self.transformer = Multimodal_transformer(config, num_hidden_layers=1, output_size=config.vlad_hidden_size, 
                                                     seq_len=config.max_frames+config.bert_seq_length, dropout=config.dropout)
         # self.fusion = ConcatDenseSE(config.hidden_size, config.se_ratio)
         self.num_labels = config.num_labels
@@ -278,21 +279,21 @@ class MultiModal_JT(Model):
         bert_embedding = self.bert([inputs['input_ids'], inputs['mask']])[0] # 0:last_hidden_state,1:poller_output
         # bert_embedding = self.bert_map(bert_embedding)
         frame_num = tf.reshape(inputs['num_frames'], [-1])
-        video_embedding, mask = self.transformer([inputs['frames'], frame_num], [bert_embedding, inputs['mask']])
+        video_embedding, mask, image_emb, text_emb = self.transformer([inputs['frames'], frame_num], [bert_embedding, inputs['mask']])
         super_neg = mask * -10000 # b, 32, 1
         video_embedding = tf.reduce_max(video_embedding + super_neg, axis=1)
         # video_embedding = video_embedding * tf.cast(tf.expand_dims(frame_num, -1) > 0, tf.float32) # avoid videos which don't have frame features
         # final_embedding = self.fusion([vision_embedding, bert_embedding])
         predictions = self.classifier(video_embedding)
 
-        return predictions, final_embedding, vision_embedding, bert_embedding
+        return predictions, video_embedding, image_emb, text_emb
 
     def get_variables(self):
         if not self.all_variables:  # is None, not initialized
             self.bert_variables = self.bert.trainable_variables
             self.num_bert = len(self.bert_variables)
-            self.normal_variables = self.video_transformer.trainable_variables + self.fusion.trainable_variables + \
-                                    self.classifier.trainable_variables + self.bert_map.trainable_variables # 这个之前忘记加了
+            self.normal_variables = self.transformer.trainable_variables + self.classifier.trainable_variables# self.fusion.trainable_variables + \
+                                    # + self.bert_map.trainable_variables # 这个之前忘记加了
             self.all_variables = self.bert_variables + self.normal_variables
         return self.all_variables
 
