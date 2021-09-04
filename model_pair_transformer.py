@@ -92,7 +92,7 @@ class Video_transformer(tf.keras.layers.Layer):
         attention_mask = tf.cast(tf.tile(i_mask, [1,self.num_heads,num_segments,1]), tf.float32)
         image_embeddings = self.fc(image_embeddings)
         # image_embeddings += self.pos_encoding
-        x = self.frame_tf_encoder(image_embeddings)#, mask=attention_mask)
+        x = self.frame_tf_encoder(image_embeddings, mask=attention_mask)
         return x, 1.0-images_mask
 
 
