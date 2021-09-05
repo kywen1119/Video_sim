@@ -12,10 +12,11 @@ import numpy as np
 from scipy.stats import spearmanr
 from cqrtrain import contrastive_loss
 
+def KL(simi, label):
+    return tf.keras.losses.KLDivergence()(simi, label)
 
 def MSE(sim, label):
     return tf.reduce_sum(tf.square(sim - label))
-
 
 def train(args):
     # 1. create dataset and set num_labels to args
@@ -53,6 +54,7 @@ def train(args):
             predictions = tf.concat([predictions_1, predictions_2], 0)
             labels = tf.concat([labels_1, labels_2], 0)
             loss_1 = loss_object_tag(labels, predictions) * labels.shape[-1]  # convert mean back to sum
+            #loss_1 = KL(sim,label_sims)
             loss = loss_0 + loss_1
         gradients = tape.gradient(loss, model.get_variables())
         model.optimize(gradients)
@@ -74,6 +76,7 @@ def train(args):
         predictions = tf.concat([predictions_1, predictions_2], 0)
         labels = tf.concat([labels_1, labels_2], 0)
         loss_1 = loss_object_tag(labels, predictions) * labels.shape[-1]  # convert mean back to sum
+        #loss_1 = KL(sim,label_sims)
         loss = loss_0 + loss_1
         val_recorder.record(loss, loss_0, loss_1)
         return vids_1, sim, label_sims
