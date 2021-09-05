@@ -230,8 +230,8 @@ class MultiModal(Model):
         bert_embedding = self.bert_map(bert_embedding)
         frame_num = tf.reshape(inputs['num_frames'], [-1])
         vision_embedding, images_mask = self.video_transformer([inputs['frames'], frame_num])
-        super_neg = images_mask * -10000 # b, 32, 1
-        vision_embedding = tf.reduce_max(vision_embedding + super_neg, axis=1)
+        # super_neg = images_mask * -10000 # b, 32, 1
+        vision_embedding = tf.reduce_max(vision_embedding, axis=1)
         vision_embedding = vision_embedding * tf.cast(tf.expand_dims(frame_num, -1) > 0, tf.float32) # avoid videos which don't have frame features
         final_embedding = self.fusion([vision_embedding, bert_embedding])
         predictions = self.classifier(final_embedding)
