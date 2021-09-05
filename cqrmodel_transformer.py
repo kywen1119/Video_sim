@@ -124,7 +124,7 @@ class Video_transformer(tf.keras.layers.Layer):
         attention_mask = tf.cast(tf.tile(i_mask, [1,self.num_heads,num_segments,1]), tf.float32)
         image_embeddings = self.fc(image_embeddings)
         # image_embeddings += self.pos_encoding
-        x = self.frame_tf_encoder(image_embeddings)#, mask=attention_mask)
+        x = self.frame_tf_encoder(image_embeddings, mask=attention_mask)
         return x, 1.0-images_mask
 
 
@@ -280,8 +280,8 @@ class MultiModal_JT(Model):
         # bert_embedding = self.bert_map(bert_embedding)
         frame_num = tf.reshape(inputs['num_frames'], [-1])
         video_embedding, mask, image_emb, text_emb = self.transformer([inputs['frames'], frame_num], [bert_embedding, inputs['mask']])
-        super_neg = mask * -10000 # b, 32, 1
-        video_embedding = tf.reduce_max(video_embedding + super_neg, axis=1)
+        # super_neg = mask * -10000 # b, 32, 1
+        video_embedding = tf.reduce_max(video_embedding, axis=1)
         # video_embedding = video_embedding * tf.cast(tf.expand_dims(frame_num, -1) > 0, tf.float32) # avoid videos which don't have frame features
         # final_embedding = self.fusion([vision_embedding, bert_embedding])
         predictions = self.classifier(video_embedding)
