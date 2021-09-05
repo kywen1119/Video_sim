@@ -260,7 +260,7 @@ class MultiModal_JT(Model):
         self.bert = TFBertModel.from_pretrained(config.bert_dir)
         # self.nextvlad = NeXtVLAD(config.frame_embedding_size, config.vlad_cluster_size,
         #                          output_size=config.vlad_hidden_size, dropout=config.dropout)
-        self.transformer = Multimodal_transformer(config, num_hidden_layers=1, output_size=config.vlad_hidden_size, 
+        self.transformer = Multimodal_transformer(config, num_hidden_layers=2, output_size=config.vlad_hidden_size, 
                                                     seq_len=config.max_frames+config.bert_seq_length, dropout=config.dropout)
         # self.fusion = ConcatDenseSE(config.hidden_size, config.se_ratio)
         self.num_labels = config.num_labels
