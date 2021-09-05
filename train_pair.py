@@ -7,7 +7,7 @@ import tensorflow as tf
 from config_pair import parser
 from data_helper_pair import create_datasets
 from metrics_pair import Recorder
-from model_pair_transformer import MultiModal
+from model_pair_transformer import MultiModal_JT as MultiModal
 import numpy as np
 from scipy.stats import spearmanr
 from cqrtrain import contrastive_loss

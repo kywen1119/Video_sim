@@ -96,6 +96,79 @@ class Video_transformer(tf.keras.layers.Layer):
         return x, 1.0-images_mask
 
 
+class Video_transformer(tf.keras.layers.Layer):
+    def __init__(self, num_hidden_layers=1, output_size=1024, seq_len=32, dropout=0.2):
+        super().__init__()
+        self.fc = tf.keras.layers.Dense(output_size, activation='relu')
+        # self.frame_tf_encoder = TransformerEncoder(hidden_size=output_size, num_hidden_layers=num_hidden_layers,
+        #          num_attention_heads=8, intermediate_size=3072)
+        self.frame_tf_encoder = Transformer_Encoder(num_layers=num_hidden_layers,
+                                                   d_model=output_size,
+                                                   num_heads=4,
+                                                   dff=output_size * 4,
+                                                   seq_len=seq_len)
+        self.num_heads = 4
+        # self.pos_encoding = positional_encoding(seq_len, output_size)
+
+    def call(self, inputs, **kwargs):
+        image_embeddings, mask = inputs
+        _, num_segments, _ = image_embeddings.shape
+        if mask is not None:  # in case num of images is less than num_segments
+            image_mask = tf.sequence_mask(mask, maxlen=num_segments) # b,32
+            images_mask = tf.cast(tf.expand_dims(image_mask, -1), tf.float32) # b,32,1
+            image_embeddings = tf.multiply(image_embeddings, images_mask)
+        i_mask = tf.expand_dims(image_mask, 1) # b,1,32
+        i_mask = tf.expand_dims(i_mask, 1) # b,1,1,32
+        attention_mask = tf.cast(tf.tile(i_mask, [1,self.num_heads,num_segments,1]), tf.float32)
+        image_embeddings = self.fc(image_embeddings)
+        # image_embeddings += self.pos_encoding
+        x = self.frame_tf_encoder(image_embeddings, mask=attention_mask)
+        return x, 1.0-images_mask
+
+
+class Multimodal_transformer(tf.keras.layers.Layer):
+    def __init__(self, config, num_hidden_layers=1, output_size=1024, seq_len=32, dropout=0.2):
+        super().__init__()
+        self.frame_fc = tf.keras.layers.Dense(output_size, activation='relu')
+        self.bert_fc = tf.keras.layers.Dense(output_size, activation='relu')
+        # self.frame_tf_encoder = TransformerEncoder(hidden_size=output_size, num_hidden_layers=num_hidden_layers,
+        #          num_attention_heads=8, intermediate_size=3072)
+        self.video_transformer = Video_transformer(num_hidden_layers=1, output_size=config.vlad_hidden_size, 
+                                                    seq_len=config.max_frames, dropout=config.dropout)
+        self.tf_encoder = Transformer_Encoder(num_layers=num_hidden_layers,
+                                                   d_model=output_size,
+                                                   num_heads=4,
+                                                   dff=output_size * 4,
+                                                   seq_len=seq_len)
+        self.num_heads = 4
+        # self.pos_encoding = positional_encoding(seq_len, output_size)
+
+    def call(self, inputs_frame, inputs_seq, **kwargs):
+        image_embeddings, frame_mask = inputs_frame
+        image_embeddings = self.frame_fc(image_embeddings)
+        video_tf_embedding, _ = self.video_transformer([image_embeddings, frame_mask])
+        text_embeddings, text_mask = inputs_seq # bert feature
+        _, num_segments, _ = image_embeddings.shape
+        _, num_words, _ = text_embeddings.shape
+        if frame_mask is not None:  # in case num of images is less than num_segments
+            image_mask = tf.sequence_mask(frame_mask, maxlen=num_segments) # b,32
+            images_mask = tf.cast(tf.expand_dims(image_mask, -1), tf.float32) # b,32,1
+            i_mask = tf.expand_dims(image_mask, 1) # b,1,32
+            i_mask = tf.cast(tf.expand_dims(i_mask, 1), tf.float32)  # b,1,1,32
+        if text_mask is not None:
+            texts_mask = tf.cast(tf.expand_dims(text_mask, -1), tf.float32) # b,32,1
+            t_mask = tf.expand_dims(text_mask, 1) # b,1,32
+            t_mask = tf.cast(tf.expand_dims(t_mask, 1), tf.float32) # b,1,1,32
+        mask = tf.concat([i_mask,t_mask], -1)
+        attention_mask = tf.cast(tf.tile(mask, [1,self.num_heads,num_segments+num_words,1]), tf.float32)
+        
+        text_embeddings = self.bert_fc(text_embeddings)
+        embeddings = tf.concat([video_tf_embedding, text_embeddings], 1)
+        # image_embeddings += self.pos_encoding
+        x = self.tf_encoder(embeddings, mask=attention_mask)
+        return x, 1.0-tf.concat([images_mask, texts_mask], 1), tf.reduce_max(video_tf_embedding, axis=1), tf.reduce_max(text_embeddings, axis=1)
+
+
 class SENet(tf.keras.layers.Layer):
     def __init__(self, channels, ratio=8, **kwargs):
         super(SENet, self).__init__(**kwargs)
@@ -126,6 +199,71 @@ class ConcatDenseSE(tf.keras.layers.Layer):
         embedding = self.enhance(embedding)
 
         return embedding
+
+
+class MultiModal_JT(Model):
+    def __init__(self, config, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.bert = TFBertModel.from_pretrained(config.bert_dir)
+        # self.bert_map = tf.keras.layers.Dense(1024, activation ='relu')
+        # self.nextvlad = NeXtVLAD(config.frame_embedding_size, config.vlad_cluster_size,
+        #                          output_size=config.vlad_hidden_size, dropout=config.dropout)
+        self.transformer = Multimodal_transformer(config, num_hidden_layers=1, output_size=config.vlad_hidden_size, 
+                                                    seq_len=config.max_frames+config.bert_seq_length, dropout=config.dropout)
+        # self.fusion = ConcatDenseSE(config.hidden_size, config.se_ratio)
+        self.num_labels = config.num_labels
+        self.classifier = tf.keras.layers.Dense(self.num_labels, activation='sigmoid')
+
+        self.bert_optimizer_1, self.bert_lr_1 = create_optimizer(init_lr=config.bert_lr,
+                                                             num_train_steps=config.bert_total_steps,
+                                                             num_warmup_steps=config.bert_warmup_steps)
+        self.optimizer_1, self.lr_1 = create_optimizer(init_lr=config.lr,
+                                                   num_train_steps=config.total_steps,
+                                                   num_warmup_steps=config.warmup_steps)
+        self.bert_variables_1, self.num_bert_1, self.normal_variables_1, self.all_variables_1 = None, None, None, None
+
+    def call(self, inputs, **kwargs):
+        bert_embedding_1 = self.bert([inputs['input_ids_1'], inputs['mask_1']])[0]
+        # bert_embedding_1 = self.bert_map(bert_embedding_1)
+        frame_num_1 = tf.reshape(inputs['num_frames_1'], [-1])
+        # vision_embedding_1 = self.nextvlad([inputs['frames_1'], frame_num_1])
+        video_embedding_1, mask_1, _, _ = self.transformer([inputs['frames_1'], frame_num_1], [bert_embedding_1, inputs['mask_1']])
+        super_neg_1 = mask_1 * -10000 # b, 32, 1
+        video_embedding_1 = tf.reduce_max(video_embedding_1 + super_neg_1, axis=1)
+        # vision_embedding_1 = vision_embedding_1 * tf.cast(tf.expand_dims(frame_num_1, -1) > 0, tf.float32)
+        # final_embedding_1 = self.fusion([vision_embedding_1, bert_embedding_1])
+        predictions_1 = self.classifier(video_embedding_1)
+
+        bert_embedding_2 = self.bert([inputs['input_ids_2'], inputs['mask_2']])[0]
+        # bert_embedding_1 = self.bert_map(bert_embedding_1)
+        frame_num_2 = tf.reshape(inputs['num_frames_2'], [-1])
+        # vision_embedding_1 = self.nextvlad([inputs['frames_1'], frame_num_1])
+        video_embedding_2, mask_2, _, _ = self.transformer([inputs['frames_2'], frame_num_2], [bert_embedding_2, inputs['mask_2']])
+        super_neg_2 = mask_2 * -10000 # b, 32, 1
+        video_embedding_2 = tf.reduce_max(video_embedding_2 + super_neg_2, axis=1)
+        # vision_embedding_1 = vision_embedding_1 * tf.cast(tf.expand_dims(frame_num_1, -1) > 0, tf.float32)
+        # final_embedding_1 = self.fusion([vision_embedding_1, bert_embedding_1])
+        predictions_2 = self.classifier(video_embedding_2)
+
+        # vision_embedding = tf.concat([vision_embedding_1, vision_embedding_2], 0)
+        # bert_embedding = tf.concat([bert_embedding_1, bert_embedding_2], 0)
+        # predictions_2 = self.classifier(final_embedding_2)
+        return video_embedding_1, video_embedding_2, predictions_1, predictions_2
+
+    def get_variables(self):
+        if not self.all_variables_1:  # is None, not initialized
+            self.bert_variables_1 = self.bert.trainable_variables
+            self.num_bert_1 = len(self.bert_variables_1)
+            self.normal_variables_1 = self.transformer.trainable_variables + \
+                                    self.classifier.trainable_variables 
+            self.all_variables_1 = self.bert_variables_1 + self.normal_variables_1
+        return self.all_variables_1
+
+    def optimize(self, gradients):
+        bert_gradients_1 = gradients[:self.num_bert_1]
+        self.bert_optimizer_1.apply_gradients(zip(bert_gradients_1, self.bert_variables_1))
+        normal_gradients_1 = gradients[self.num_bert_1:]
+        self.optimizer_1.apply_gradients(zip(normal_gradients_1, self.normal_variables_1))
 
 
 class MultiModal(Model):
