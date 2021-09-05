@@ -23,7 +23,8 @@ parser.add_argument('--eval-freq', default=1000, type=int, help='evaluation step
 
 # ======================== SavedModel Configs =========================
 parser.add_argument('--resume-training', default=0, type=int, help='resume training from checkpoints')
-parser.add_argument('--savedmodel-path', type=str, default='save/pair_jointtf')
+parser.add_argument('--savedmodel-path', type=str, default='save/pair_tf')
+parser.add_argument('--tf-layer', type=int, default=1)
 parser.add_argument('--ckpt-file', type=str, default='save/diao/ckpt-40000')
 parser.add_argument('--max-to-keep', default=10, type=int, help='the number of checkpoints to keep')
 parser.add_argument('--start-epoch', default=0, type=int, help='manual epoch number (useful on restarts)')

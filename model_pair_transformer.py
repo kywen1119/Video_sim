@@ -141,6 +141,7 @@ class Multimodal_transformer(tf.keras.layers.Layer):
                                                    dff=output_size * 4,
                                                    seq_len=seq_len)
         self.num_heads = 4
+        self.video_fc = tf.keras.layers.Dense(config.hidden_size)
         # self.pos_encoding = positional_encoding(seq_len, output_size)
 
     def call(self, inputs_frame, inputs_seq, **kwargs):
@@ -166,6 +167,7 @@ class Multimodal_transformer(tf.keras.layers.Layer):
         embeddings = tf.concat([video_tf_embedding, text_embeddings], 1)
         # image_embeddings += self.pos_encoding
         x = self.tf_encoder(embeddings, mask=attention_mask)
+        x = self.video_fc(x)
         return x, 1.0-tf.concat([images_mask, texts_mask], 1), tf.reduce_max(video_tf_embedding, axis=1), tf.reduce_max(text_embeddings, axis=1)
 
 
@@ -208,7 +210,7 @@ class MultiModal_JT(Model):
         # self.bert_map = tf.keras.layers.Dense(1024, activation ='relu')
         # self.nextvlad = NeXtVLAD(config.frame_embedding_size, config.vlad_cluster_size,
         #                          output_size=config.vlad_hidden_size, dropout=config.dropout)
-        self.transformer = Multimodal_transformer(config, num_hidden_layers=1, output_size=config.vlad_hidden_size, 
+        self.transformer = Multimodal_transformer(config, num_hidden_layers=config.tf_layer, output_size=config.vlad_hidden_size, 
                                                     seq_len=config.max_frames+config.bert_seq_length, dropout=config.dropout)
         # self.fusion = ConcatDenseSE(config.hidden_size, config.se_ratio)
         self.num_labels = config.num_labels
@@ -228,8 +230,8 @@ class MultiModal_JT(Model):
         frame_num_1 = tf.reshape(inputs['num_frames_1'], [-1])
         # vision_embedding_1 = self.nextvlad([inputs['frames_1'], frame_num_1])
         video_embedding_1, mask_1, _, _ = self.transformer([inputs['frames_1'], frame_num_1], [bert_embedding_1, inputs['mask_1']])
-        super_neg_1 = mask_1 * -10000 # b, 32, 1
-        video_embedding_1 = tf.reduce_max(video_embedding_1 + super_neg_1, axis=1)
+        # super_neg_1 = mask_1 * -10000 # b, 32, 1
+        video_embedding_1 = tf.reduce_max(video_embedding_1, axis=1)
         # vision_embedding_1 = vision_embedding_1 * tf.cast(tf.expand_dims(frame_num_1, -1) > 0, tf.float32)
         # final_embedding_1 = self.fusion([vision_embedding_1, bert_embedding_1])
         predictions_1 = self.classifier(video_embedding_1)
@@ -239,8 +241,8 @@ class MultiModal_JT(Model):
         frame_num_2 = tf.reshape(inputs['num_frames_2'], [-1])
         # vision_embedding_1 = self.nextvlad([inputs['frames_1'], frame_num_1])
         video_embedding_2, mask_2, _, _ = self.transformer([inputs['frames_2'], frame_num_2], [bert_embedding_2, inputs['mask_2']])
-        super_neg_2 = mask_2 * -10000 # b, 32, 1
-        video_embedding_2 = tf.reduce_max(video_embedding_2 + super_neg_2, axis=1)
+        # super_neg_2 = mask_2 * -10000 # b, 32, 1
+        video_embedding_2 = tf.reduce_max(video_embedding_2, axis=1)
         # vision_embedding_1 = vision_embedding_1 * tf.cast(tf.expand_dims(frame_num_1, -1) > 0, tf.float32)
         # final_embedding_1 = self.fusion([vision_embedding_1, bert_embedding_1])
         predictions_2 = self.classifier(video_embedding_2)
