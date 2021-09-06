@@ -4,7 +4,7 @@ from zipfile import ZipFile, ZIP_DEFLATED
 from util import test_spearmanr
 
 if __name__ == '__main__':
-    result_zip = 'result.zip'
+    result_zip = 'result_test.zip'
     result_json = 'result.json'
     annotation_file = 'data/pairwise/label.tsv'
     with ZipFile(result_zip, 'r', compression=ZIP_DEFLATED) as zip_file:
