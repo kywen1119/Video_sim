@@ -3,7 +3,7 @@ import argparse
 parser = argparse.ArgumentParser(description="QQ Browser video embedding challenge")
 
 parser.add_argument('--dropout', type=float, default=0.2, help='dropout ratio')
-parser.add_argument('--multi-label-file', type=str, default='data/tag_list_over30.txt', help='supervised tag list')
+parser.add_argument('--multi-label-file', type=str, default='data/tag_list.txt', help='supervised tag list')
 
 # ========================= Dataset Configs ==========================
 parser.add_argument('--train-record-pattern', type=str, default='data/pointwise/*.tfrecords')

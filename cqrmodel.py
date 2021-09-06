@@ -1,6 +1,7 @@
 import tensorflow as tf
 from tensorflow.python.keras.models import Model
 from transformers import TFBertModel, create_optimizer
+from layers.transformer_layer import TransformerEncoder
 
 
 class NeXtVLAD(tf.keras.layers.Layer):
@@ -63,6 +64,21 @@ class NeXtVLAD(tf.keras.layers.Layer):
         vlad = self.dropout(vlad)
         vlad = self.fc(vlad)
         return vlad
+
+
+class Video_transformer(tf.keras.layers.Layer):
+    def __init__(self, num_hidden_layers=1, output_size=1024, dropout=0.2):
+        super().__init__()
+        self.fc = tf.keras.layers.Dense(output_size, activation='relu')
+        self.frame_tf_encoder = TransformerEncoder(hidden_size=output_size, num_hidden_layers=num_hidden_layers,
+                 num_attention_heads=8, intermediate_size=3072)
+
+    def call(self, inputs, **kwargs):
+        image_embeddings, mask = inputs
+        image_embeddings = self.fc(image_embeddings)
+        all_layer_outputs, all_attention_probs = self.frame_tf_encoder(image_embeddings)
+        return all_layer_outputs[-1]
+
 
 
 class SENet(tf.keras.layers.Layer):
