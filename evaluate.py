@@ -13,3 +13,6 @@ if __name__ == '__main__':
 
     spearmanr = test_spearmanr(vid_embedding, annotation_file)
     print(f'Spearmanr of test_a is: {spearmanr:.4f}')
+
+
+    #jjjj
