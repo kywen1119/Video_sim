@@ -6,7 +6,7 @@ import tensorflow as tf
 
 from config_pair import parser
 from data_helper import FeatureParser
-from cqrmodel_transformer import MultiModal
+from cqrmodel_transformer import MultiModal_JT as MultiModal
 
 
 def main():

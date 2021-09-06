@@ -13,7 +13,7 @@ from scipy.stats import spearmanr
 from cqrtrain import contrastive_loss
 
 def KL(simi, label):
-    return tf.keras.losses.KLDivergence()(simi, label)
+    return tf.keras.losses.KLDivergence()( label, simi)
 
 def MSE(sim, label):
     return tf.reduce_sum(tf.square(sim - label))
