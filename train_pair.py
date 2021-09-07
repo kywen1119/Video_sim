@@ -15,7 +15,8 @@ from cqrtrain import contrastive_loss
 
 def MSE(sim, label):
     return tf.reduce_sum(tf.square(sim - label))
-
+def KL(sim, label):
+    return tf.keras.losses.KLDivergence()(label, sim)
 
 def train(args):
     # 1. create dataset and set num_labels to args
@@ -34,6 +35,7 @@ def train(args):
         logging.info("Initializing from scratch.")
     # 4. create loss_object and recorders
     loss_object = MSE
+    loss_kl = tf.keras.losses.KLDivergence()
     loss_object_tag = tf.keras.losses.BinaryCrossentropy(reduction=tf.keras.losses.Reduction.NONE)
     train_recorder, val_recorder = Recorder(), Recorder()
 
@@ -52,8 +54,9 @@ def train(args):
             #loss_1 = contrastive_loss(vision_embedding, bert_embedding) * 5.0
             predictions = tf.concat([predictions_1, predictions_2], 0)
             labels = tf.concat([labels_1, labels_2], 0)
-            loss_1 = loss_object_tag(labels, predictions) * labels.shape[-1]  # convert mean back to sum
-            loss = loss_0 + loss_1
+            loss_1 = loss_kl(label_sims, sim) 
+            #loss_1 = loss_object_tag(labels, predictions) * labels.shape[-1]  # convert mean back to sum
+            loss = loss_0 + 0.2*loss_1
         gradients = tape.gradient(loss, model.get_variables())
         model.optimize(gradients)
         train_recorder.record(loss, loss_0, loss_1)
@@ -73,8 +76,9 @@ def train(args):
         #loss_1 = contrastive_loss(vision_embedding, bert_embedding) * 10.0
         predictions = tf.concat([predictions_1, predictions_2], 0)
         labels = tf.concat([labels_1, labels_2], 0)
-        loss_1 = loss_object_tag(labels, predictions) * labels.shape[-1]  # convert mean back to sum
-        loss = loss_0 + loss_1
+        loss_1 = loss_kl(label_sims, sim)
+        #loss_1 = loss_object_tag(labels, predictions) * labels.shape[-1]  # convert mean back to sum
+        loss = loss_0 + 0.2*loss_1
         val_recorder.record(loss, loss_0, loss_1)
         return vids_1, sim, label_sims
     # import pdb;pdb.set_trace()
