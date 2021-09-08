@@ -9,7 +9,7 @@ parser.add_argument('--multi-label-file', type=str, default='data/tag_list.txt',
 parser.add_argument('--train-record-pattern', type=str, default='data/pointwise/*.tfrecords')
 parser.add_argument('--val-record-pattern', type=str, default='data/pairwise/pairwise.tfrecords')
 parser.add_argument('--annotation-file', type=str, default='data/pairwise/label.tsv')
-parser.add_argument('--test-a-file', type=str, default='data/test_a/test_a.tfrecords')
+parser.add_argument('--test-a-file', type=str, default='data/pairwise/pairwise.tfrecords')
 parser.add_argument('--test-b-file', type=str, default='data/test_b/test_b.tfrecords')
 parser.add_argument('--output-json', type=str, default='result.json')
 parser.add_argument('--output-zip', type=str, default='result_ftpair.zip')
