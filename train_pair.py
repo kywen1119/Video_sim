@@ -56,7 +56,7 @@ def train(args):
             labels = tf.concat([labels_1, labels_2], 0)
             loss_1 = loss_kl(label_sims, sim) 
             #loss_1 = loss_object_tag(labels, predictions) * labels.shape[-1]  # convert mean back to sum
-            loss = loss_0 + 0.2*loss_1
+            loss = loss_0 + args.kl_weight*loss_1
         gradients = tape.gradient(loss, model.get_variables())
         model.optimize(gradients)
         train_recorder.record(loss, loss_0, loss_1)
@@ -78,7 +78,7 @@ def train(args):
         labels = tf.concat([labels_1, labels_2], 0)
         loss_1 = loss_kl(label_sims, sim)
         #loss_1 = loss_object_tag(labels, predictions) * labels.shape[-1]  # convert mean back to sum
-        loss = loss_0 + 0.2*loss_1
+        loss = loss_0 + args.kl_weight*loss_1
         val_recorder.record(loss, loss_0, loss_1)
         return vids_1, sim, label_sims
     # import pdb;pdb.set_trace()
