@@ -53,6 +53,14 @@ for line in f:
     sim = float(sim)
     all_pair_data.append([id_1, id_2, sim])
 
+label_path_sup = 'data/pairwise/label_sup_sam.tsv'
+f = open(label_path_sup)
+all_pair_data_sup = []
+for line in f:
+    id_1, id_2, sim = line.strip().split('\t')
+    sim = float(sim)
+    all_pair_data_sup.append([id_1, id_2, sim])
+
 # shuffle pair data and get the top 6000 for validation
 import random
 
@@ -61,12 +69,13 @@ random.seed(42)
 random.shuffle(all_pair_data)
 # print(all_pair_data[:10])
 val_pair_data = all_pair_data[:6000]
-train_pair_data = all_pair_data[:]
+train_pair_data = all_pair_data[6000:] + all_pair_data_sup
+random.shuffle(train_pair_data)
 
 from tqdm import tqdm
 
 def write_tfrecord(pair_datas, split):
-    write_path = 'data/pairwise/trainall/'+split+'.tfrecord'
+    write_path = 'data/pairwise/0-5999val_sam/'+split+'.tfrecord' # 61899+41103
     writer = tf.io.TFRecordWriter(write_path) 
     for pair_data in tqdm(pair_datas): # [id_1, id_2, sim] [str, str, float]
         id_1, id_2, sim = pair_data
