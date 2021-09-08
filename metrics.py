@@ -5,8 +5,10 @@ import tensorflow as tf
 class Recorder:
     def __init__(self):
         self.loss = tf.keras.metrics.Mean()
-        self.precision = tf.keras.metrics.Precision()
-        self.recall = tf.keras.metrics.Recall()
+        # self.precision = tf.keras.metrics.Precision()
+        self.precision = tf.keras.metrics.SparseCategoricalAccuracy()
+        # self.recall = tf.keras.metrics.Recall()
+        self.recall = tf.keras.metrics.SparseCategoricalAccuracy()
 
         self.pattern = 'Epoch: {}, step: {}, loss: {:.4f}, precision: {:.4f}, recall: {:.4f}, f1: {:.4f}'
 

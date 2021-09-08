@@ -165,7 +165,7 @@ class BERTforMaskedLM(Model):
         super().__init__(*args, **kwargs)
         self.bert = TFBertModel.from_pretrained(config.bert_dir)
         bert_config = self.bert.config
-        self.mlm = TFBertMLMHead(bert_config, input_embeddings=self.bert.embeddings, name="mlm___cls")
+        self.mlm = TFBertMLMHead(bert_config, input_embeddings=self.bert.bert.embeddings, name="mlm___cls")
 
         self.bert_optimizer, self.bert_lr = create_optimizer(init_lr=config.bert_lr,
                                                              num_train_steps=config.bert_total_steps,
@@ -175,10 +175,10 @@ class BERTforMaskedLM(Model):
                                                    num_warmup_steps=config.warmup_steps)
         self.bert_variables, self.num_bert, self.normal_variables, self.all_variables = None, None, None, None
 
-    def call(self, inputs, **kwargs):
+    def call(self, inputs, training, **kwargs):
         bert_embedding = self.bert([inputs['input_ids'], inputs['mask']]) # hidden_state
         sequence_output = bert_embedding[0]
-        prediction_scores = self.mlm(sequence_output=sequence_output, training=inputs["training"])
+        prediction_scores = self.mlm(sequence_output=sequence_output, training=training)
         loss = (
             None if inputs["mask_labels"] is None else self.compute_loss(labels=inputs["mask_labels"], logits=prediction_scores)
         )
@@ -199,7 +199,7 @@ class BERTforMaskedLM(Model):
         if not self.all_variables:  # is None, not initialized
             self.bert_variables = self.bert.trainable_variables
             self.num_bert = len(self.bert_variables)
-            self.normal_variables = self.nextvlad.trainable_variables + self.mlm.trainable_variables
+            self.normal_variables = self.mlm.trainable_variables
             self.all_variables = self.bert_variables + self.normal_variables
         return self.all_variables
 
