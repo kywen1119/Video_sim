@@ -9,7 +9,7 @@ parser.add_argument('--multi-label-file', type=str, default='data/tag_list.txt',
 parser.add_argument('--train-record-pattern', type=str, default='data/pointwise/*.tfrecords')
 parser.add_argument('--val-record-pattern', type=str, default='data/pairwise/pairwise.tfrecords')
 parser.add_argument('--annotation-file', type=str, default='data/pairwise/label.tsv')
-parser.add_argument('--test-a-file', type=str, default='data/test_a/test_a.tfrecords')
+parser.add_argument('--test-a-file', type=str, default='data/pairwise/pairwise.tfrecords')
 parser.add_argument('--test-b-file', type=str, default='data/test_b/test_b.tfrecords')
 parser.add_argument('--output-json', type=str, default='result.json')
 parser.add_argument('--output-zip', type=str, default='result_ftpair.zip')
@@ -24,7 +24,7 @@ parser.add_argument('--eval-freq', default=500, type=int, help='evaluation step 
 # ======================== SavedModel Configs =========================
 parser.add_argument('--resume-training', default=0, type=int, help='resume training from checkpoints')
 parser.add_argument('--savedmodel-path', type=str, default='save/v1')
-parser.add_argument('--ckpt-file', type=str, default='save/ft_pair/ckpt-6000')
+parser.add_argument('--ckpt-file', type=str, default='save/v1/ckpt-23500')
 parser.add_argument('--max-to-keep', default=100, type=int, help='the number of checkpoints to keep')
 parser.add_argument('--start-epoch', default=0, type=int, help='manual epoch number (useful on restarts)')
 
