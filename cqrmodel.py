@@ -1,7 +1,7 @@
 import tensorflow as tf
 from tensorflow.python.keras.models import Model
 from transformers import TFBertModel, create_optimizer
-from layers.transformer_layer import TransformerEncoder
+# from layers.transformer_layer import TransformerEncoder
 
 
 class NeXtVLAD(tf.keras.layers.Layer):
