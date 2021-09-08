@@ -64,13 +64,13 @@ class FeatureParser:
             example["labels"][example["labels"] == self.tokenizer.pad_token_id] = -100
         example = {key: tf.convert_to_tensor(arr) for key, arr in example.items()}
 
-        input_ids = example['input_ids']
-        mask = example['attention_mask']
-        mask_labels = example['labels']
+        input_ids = tf.cast(example['input_ids'], tf.int32)
+        mask = tf.cast(example['attention_mask'], tf.int32)
+        mask_labels = tf.cast(example['labels'], tf.int32)
         return input_ids, mask, mask_labels
 
     def _parse_title(self, title):
-        input_ids, mask, mask_labels = tf.py_function(self._encode, [title], [tf.int32, tf.int32])
+        input_ids, mask, mask_labels = tf.py_function(self._encode, [title], [tf.int32, tf.int32, tf.int32])
         input_ids.set_shape([self.max_bert_length])
         mask.set_shape([self.max_bert_length])
         mask_labels.set_shape([self.max_bert_length])

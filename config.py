@@ -13,18 +13,18 @@ parser.add_argument('--test-a-file', type=str, default='data/pairwise/pairwise.t
 parser.add_argument('--test-b-file', type=str, default='data/test_b/test_b.tfrecords')
 parser.add_argument('--output-json', type=str, default='result.json')
 parser.add_argument('--output-zip', type=str, default='result_ftpair.zip')
-parser.add_argument('--batch-size', default=32, type=int)
+parser.add_argument('--batch-size', default=224, type=int)
 parser.add_argument('--val-batch-size', default=32, type=int)
 parser.add_argument('--test-batch-size', default=32, type=int)
 
 # ========================= Monitor Configs ==========================
-parser.add_argument('--print-freq', default=20, type=int, help='print frequency')
-parser.add_argument('--eval-freq', default=500, type=int, help='evaluation step frequency')
+parser.add_argument('--print-freq', default=100, type=int, help='print frequency')
+parser.add_argument('--eval-freq', default=1000, type=int, help='evaluation step frequency')
 
 # ======================== SavedModel Configs =========================
 parser.add_argument('--resume-training', default=0, type=int, help='resume training from checkpoints')
-parser.add_argument('--savedmodel-path', type=str, default='save/v1')
-parser.add_argument('--ckpt-file', type=str, default='save/v1/ckpt-23500')
+parser.add_argument('--savedmodel-path', type=str, default='save/mlm')
+parser.add_argument('--ckpt-file', type=str, default='save/ft_pair/ckpt-6000')
 parser.add_argument('--max-to-keep', default=100, type=int, help='the number of checkpoints to keep')
 parser.add_argument('--start-epoch', default=0, type=int, help='manual epoch number (useful on restarts)')
 
@@ -44,7 +44,7 @@ parser.add_argument('--vlad-hidden-size', type=int, default=1024, help='nextvlad
 parser.add_argument('--se-ratio', type=int, default=8, help='reduction factor in se context gating')
 
 # ========================== Title BERT =============================
-parser.add_argument('--bert-dir', type=str, default='data/chinese_L-12_H-768_A-12')
+parser.add_argument('--bert-dir', type=str, default='data/chinese-roberta-wwm-ext')
 parser.add_argument('--bert-seq-length', type=int, default=32)
 parser.add_argument('--bert-lr', type=float, default=3e-5)
 parser.add_argument('--bert-total-steps', type=int, default=40000)
