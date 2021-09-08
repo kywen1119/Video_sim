@@ -12,8 +12,8 @@ parser.add_argument('--annotation-file', type=str, default='data/pairwise/label.
 parser.add_argument('--test-a-file', type=str, default='data/test_a/test_a.tfrecords')
 parser.add_argument('--test-b-file', type=str, default='data/test_b/test_b.tfrecords')
 parser.add_argument('--output-json', type=str, default='result.json')
-parser.add_argument('--output-zip', type=str, default='result_pair.zip')
-parser.add_argument('--batch-size', default=110, type=int)
+parser.add_argument('--output-zip', type=str, default='result_pair_kl_01.zip')
+parser.add_argument('--batch-size', default=112, type=int)
 parser.add_argument('--val-batch-size', default=32, type=int)
 parser.add_argument('--test-batch-size', default=32, type=int)
 
@@ -23,15 +23,15 @@ parser.add_argument('--eval-freq', default=1000, type=int, help='evaluation step
 
 # ======================== SavedModel Configs =========================
 parser.add_argument('--resume-training', default=0, type=int, help='resume training from checkpoints')
-parser.add_argument('--savedmodel-path', type=str, default='save/ft_pair_20e_tag')
-parser.add_argument('--pretrain_model_dir', type=str, default='save/pair_1')
-parser.add_argument('--ckpt-file', type=str, default='save/ft_pair_20e_tag/ckpt-11240')
+parser.add_argument('--savedmodel-path', type=str, default='save/ft_pair_kl0.2_mlm')
+parser.add_argument('--pretrain_model_dir', type=str, default='save/pair_2')
+parser.add_argument('--ckpt-file', type=str, default='save/ft_pair_kl0.1/ckpt-11040')
 parser.add_argument('--max-to-keep', default=3, type=int, help='the number of checkpoints to keep')
 parser.add_argument('--start-epoch', default=0, type=int, help='manual epoch number (useful on restarts)')
 
 # ========================= Learning Configs ==========================
 parser.add_argument('--epochs', default=20, type=int, metavar='N', help='number of total epochs to run')
-parser.add_argument('--total-steps', default=11500, type=int)
+parser.add_argument('--total-steps', default=11200, type=int)
 parser.add_argument('--warmup-steps', default=1000, type=int)
 parser.add_argument('--minimum-lr', default=0., type=float, help='minimum learning rate')
 parser.add_argument('--lr', default=0.0005, type=float, help='initial learning rate')
