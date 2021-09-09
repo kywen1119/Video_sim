@@ -5,7 +5,7 @@ from pprint import pprint
 import tensorflow as tf
 
 from config_pair import parser
-from data_helper_pair import create_datasets
+from data_helper_pair_mask import create_datasets
 from metrics_pair import Recorder
 from model_pair import MultiModal
 import numpy as np
