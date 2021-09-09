@@ -1,6 +1,7 @@
 import tensorflow as tf
 from tensorflow.python.keras.models import Model
 from transformers import TFBertModel, create_optimizer
+from transformers.models.bert.modeling_tf_bert import TFBertMLMHead
 # from layers.transformer_layer import TransformerEncoder
 
 
@@ -149,6 +150,91 @@ class MultiModal(Model):
             self.num_bert = len(self.bert_variables)
             self.normal_variables = self.nextvlad.trainable_variables + self.fusion.trainable_variables + \
                                     self.classifier.trainable_variables + self.bert_map.trainable_variables # 这个之前忘记加了
+            self.all_variables = self.bert_variables + self.normal_variables
+        return self.all_variables
+
+    def optimize(self, gradients):
+        bert_gradients = gradients[:self.num_bert]
+        self.bert_optimizer.apply_gradients(zip(bert_gradients, self.bert_variables))
+        normal_gradients = gradients[self.num_bert:]
+        self.optimizer.apply_gradients(zip(normal_gradients, self.normal_variables))
+
+
+def shape_list(tensor):
+    """
+    Deal with dynamic shape in tensorflow cleanly.
+    Args:
+        tensor (:obj:`tf.Tensor`): The tensor we want the shape of.
+    Returns:
+        :obj:`List[int]`: The shape of the tensor as a list.
+    """
+    dynamic = tf.shape(tensor)
+
+    if tensor.shape == tf.TensorShape(None):
+        return dynamic
+
+    static = tensor.shape.as_list()
+
+    return [dynamic[i] if s is None else s for i, s in enumerate(static)]
+
+
+class MultiModal_mlm(Model):
+    def __init__(self, config, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.bert = TFBertModel.from_pretrained(config.bert_dir)
+        # mlm head
+        bert_config = self.bert.config
+        self.mlm = TFBertMLMHead(bert_config, input_embeddings=self.bert.bert.embeddings, name="mlm___cls")
+
+        self.nextvlad = NeXtVLAD(config.frame_embedding_size, config.vlad_cluster_size,
+                                 output_size=config.vlad_hidden_size, dropout=config.dropout)
+        self.fusion = ConcatDenseSE(config.hidden_size, config.se_ratio)
+        self.num_labels = config.num_labels
+        self.classifier = tf.keras.layers.Dense(self.num_labels, activation='sigmoid')
+        self.bert_map = tf.keras.layers.Dense(1024, activation ='relu')
+
+        self.bert_optimizer, self.bert_lr = create_optimizer(init_lr=config.bert_lr,
+                                                             num_train_steps=config.bert_total_steps,
+                                                             num_warmup_steps=config.bert_warmup_steps)
+        self.optimizer, self.lr = create_optimizer(init_lr=config.lr,
+                                                   num_train_steps=config.total_steps,
+                                                   num_warmup_steps=config.warmup_steps)
+        self.bert_variables, self.num_bert, self.normal_variables, self.all_variables = None, None, None, None
+
+    def call(self, inputs, training, **kwargs):
+        bert_output = self.bert([inputs['input_ids'], inputs['mask']]) # inputs have random mask
+        sequence_output = bert_output[0]
+        bert_embedding = bert_output[1]
+        prediction_scores = self.mlm(sequence_output=sequence_output, training=training)
+        loss_mlm = (
+            None if inputs["mask_labels"] is None else self.compute_loss(labels=inputs["mask_labels"], logits=prediction_scores)
+        )
+        bert_embedding = self.bert_map(bert_embedding)
+        frame_num = tf.reshape(inputs['num_frames'], [-1])
+        vision_embedding = self.nextvlad([inputs['frames'], frame_num])
+        vision_embedding = vision_embedding * tf.cast(tf.expand_dims(frame_num, -1) > 0, tf.float32)
+        final_embedding = self.fusion([vision_embedding, bert_embedding])
+        predictions = self.classifier(final_embedding)
+
+        return predictions, final_embedding, vision_embedding, bert_embedding, loss_mlm
+
+    def compute_loss(self, labels, logits):
+        loss_fn = tf.keras.losses.SparseCategoricalCrossentropy(
+            from_logits=True, reduction=tf.keras.losses.Reduction.NONE
+        )
+        # make sure only labels that are not equal to -100 affect the loss
+        active_loss = tf.not_equal(tf.reshape(labels, (-1,)), -100)
+        reduced_logits = tf.boolean_mask(tf.reshape(logits, (-1, shape_list(logits)[2])), active_loss)
+        labels = tf.boolean_mask(tf.reshape(labels, (-1,)), active_loss)
+        return loss_fn(labels, reduced_logits)
+
+    def get_variables(self):
+        if not self.all_variables:  # is None, not initialized
+            self.bert_variables = self.bert.trainable_variables
+            self.num_bert = len(self.bert_variables)
+            self.normal_variables = self.nextvlad.trainable_variables + self.fusion.trainable_variables + \
+                                    self.classifier.trainable_variables + self.bert_map.trainable_variables + \
+                                    self.mlm.trainable_variables
             self.all_variables = self.bert_variables + self.normal_variables
         return self.all_variables
 
