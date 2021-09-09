@@ -160,24 +160,6 @@ class MultiModal(Model):
         self.optimizer.apply_gradients(zip(normal_gradients, self.normal_variables))
 
 
-def shape_list(tensor):
-    """
-    Deal with dynamic shape in tensorflow cleanly.
-    Args:
-        tensor (:obj:`tf.Tensor`): The tensor we want the shape of.
-    Returns:
-        :obj:`List[int]`: The shape of the tensor as a list.
-    """
-    dynamic = tf.shape(tensor)
-
-    if tensor.shape == tf.TensorShape(None):
-        return dynamic
-
-    static = tensor.shape.as_list()
-
-    return [dynamic[i] if s is None else s for i, s in enumerate(static)]
-
-
 class MultiModal_mlm(Model):
     def __init__(self, config, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -205,10 +187,10 @@ class MultiModal_mlm(Model):
         bert_output = self.bert([inputs['input_ids'], inputs['mask']]) # inputs have random mask
         sequence_output = bert_output[0]
         bert_embedding = bert_output[1]
-        prediction_scores = self.mlm(sequence_output=sequence_output, training=training)
-        loss_mlm = (
-            None if inputs["mask_labels"] is None else self.compute_loss(labels=inputs["mask_labels"], logits=prediction_scores)
-        )
+        prediction_scores_mlm = self.mlm(sequence_output=sequence_output, training=training)
+        # loss_mlm = (
+        #     None if inputs["mask_labels"] is None else self.compute_loss(labels=inputs["mask_labels"], logits=prediction_scores)
+        # )
         bert_embedding = self.bert_map(bert_embedding)
         frame_num = tf.reshape(inputs['num_frames'], [-1])
         vision_embedding = self.nextvlad([inputs['frames'], frame_num])
@@ -216,7 +198,7 @@ class MultiModal_mlm(Model):
         final_embedding = self.fusion([vision_embedding, bert_embedding])
         predictions = self.classifier(final_embedding)
 
-        return predictions, final_embedding, vision_embedding, bert_embedding, loss_mlm
+        return predictions, final_embedding, vision_embedding, bert_embedding, prediction_scores_mlm
 
     def compute_loss(self, labels, logits):
         loss_fn = tf.keras.losses.SparseCategoricalCrossentropy(

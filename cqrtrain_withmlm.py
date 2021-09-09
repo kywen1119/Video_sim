@@ -37,6 +37,35 @@ def contrastive_loss(projections_1, projections_2):
     return (loss_1_2 + loss_2_1) / 2
 
 
+def shape_list(tensor):
+    """
+    Deal with dynamic shape in tensorflow cleanly.
+    Args:
+        tensor (:obj:`tf.Tensor`): The tensor we want the shape of.
+    Returns:
+        :obj:`List[int]`: The shape of the tensor as a list.
+    """
+    dynamic = tf.shape(tensor)
+
+    if tensor.shape == tf.TensorShape(None):
+        return dynamic
+
+    static = tensor.shape.as_list()
+
+    return [dynamic[i] if s is None else s for i, s in enumerate(static)]
+
+
+def compute_loss(labels, logits):
+    loss_fn = tf.keras.losses.SparseCategoricalCrossentropy(
+        from_logits=True, reduction=tf.keras.losses.Reduction.NONE
+    )
+    # make sure only labels that are not equal to -100 affect the loss
+    active_loss = tf.not_equal(tf.reshape(labels, (-1,)), -100)
+    reduced_logits = tf.boolean_mask(tf.reshape(logits, (-1, shape_list(logits)[2])), active_loss)
+    labels = tf.boolean_mask(tf.reshape(labels, (-1,)), active_loss)
+    return tf.reduce_mean(loss_fn(labels, reduced_logits))
+
+
 def train(args):
     # 1. create dataset and set num_labels to args
     train_dataset, val_dataset = create_datasets(args)
@@ -59,9 +88,10 @@ def train(args):
     def train_step(inputs):
         labels = inputs['labels']
         with tf.GradientTape() as tape:
-            predictions, _, vision_embedding, bert_embedding, loss_mlm = model(inputs, training=True)
+            predictions, _, vision_embedding, bert_embedding, prediction_scores_mlm = model(inputs, training=True)
             loss_0 = loss_object(labels, predictions) * labels.shape[-1]  # convert mean back to sum
             loss_1 = contrastive_loss(vision_embedding, bert_embedding) * 10.0
+            loss_mlm = compute_loss(labels=inputs["mask_labels"], logits=prediction_scores_mlm) * 10.0
             loss = loss_0 + loss_1 + loss_mlm
         gradients = tape.gradient(loss, model.get_variables())
         model.optimize(gradients)
@@ -71,9 +101,10 @@ def train(args):
     def val_step(inputs):
         vids = inputs['vid']
         labels = inputs['labels']
-        predictions, embeddings, vision_embedding, bert_embedding, loss_mlm = model(inputs, training=False)
+        predictions, embeddings, vision_embedding, bert_embedding, prediction_scores_mlm = model(inputs, training=False)
         loss_0 = loss_object(labels, predictions) * labels.shape[-1]  # convert mean back to sum
         loss_1 = contrastive_loss(vision_embedding, bert_embedding) *10.0
+        loss_mlm = compute_loss(labels=inputs["mask_labels"], logits=prediction_scores_mlm) * 10.0
         loss = loss_0 + loss_1 + loss_mlm
         val_recorder.record(loss,loss_0, loss_1, loss_mlm, labels, predictions)
         return vids, embeddings
