@@ -6,27 +6,28 @@ parser.add_argument('--dropout', type=float, default=0.2, help='dropout ratio')
 parser.add_argument('--multi-label-file', type=str, default='data/tag_list.txt', help='supervised tag list')
 
 # ========================= Dataset Configs ==========================
-parser.add_argument('--train-record-pattern', type=str, default='data/pairwise/0-5999val_plus/train.tfrecord')
-parser.add_argument('--val-record-pattern', type=str, default='data/pairwise/0-5999val_plus/val.tfrecord')
+parser.add_argument('--train-record-pattern', type=str, default='data/pairwise/0-5999val/train.tfrecord')
+parser.add_argument('--val-record-pattern', type=str, default='data/pairwise/0-5999val/val.tfrecord')
 parser.add_argument('--annotation-file', type=str, default='data/pairwise/label.tsv')
 parser.add_argument('--test-a-file', type=str, default='data/test_a/test_a.tfrecords')
 parser.add_argument('--test-b-file', type=str, default='data/test_b/test_b.tfrecords')
 parser.add_argument('--output-json', type=str, default='result.json')
 parser.add_argument('--output-zip', type=str, default='result_tf.zip')
-parser.add_argument('--batch-size', default=100, type=int)
+parser.add_argument('--batch-size', default=112, type=int)
 parser.add_argument('--val-batch-size', default=32, type=int)
 parser.add_argument('--test-batch-size', default=32, type=int)
 
 # ========================= Monitor Configs ==========================
-parser.add_argument('--print-freq', default=50, type=int, help='print frequency')
+parser.add_argument('--print-freq', default=100, type=int, help='print frequency')
 parser.add_argument('--eval-freq', default=1000, type=int, help='evaluation step frequency')
 
 # ======================== SavedModel Configs =========================
 parser.add_argument('--resume-training', default=0, type=int, help='resume training from checkpoints')
-parser.add_argument('--savedmodel-path', type=str, default='save/ft_tf_super')
+parser.add_argument('--savedmodel-path', type=str, default='save/ft_tf_kl0.5')
 parser.add_argument('--tf-layer', type=int, default=1)
-parser.add_argument('--pretrain_model_dir', type=str, default='save/pair_joint')
-parser.add_argument('--ckpt-file', type=str, default='save/ft_tf_super/ckpt-25201')
+parser.add_argument('--pretrain_model_dir', type=str, default='save/pair_tf_superneg')
+parser.add_argument('--kl-weight', type=float, default=0.5)
+parser.add_argument('--ckpt-file', type=str, default='save/ft_tf_super/ckpt-11040')
 parser.add_argument('--max-to-keep', default=3, type=int, help='the number of checkpoints to keep')
 parser.add_argument('--start-epoch', default=0, type=int, help='manual epoch number (useful on restarts)')
 

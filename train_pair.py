@@ -7,7 +7,7 @@ import tensorflow as tf
 from config_pair import parser
 from data_helper_pair import create_datasets
 from metrics_pair import Recorder
-from model_pair_transformer import MultiModal_JT as MultiModal
+from model_pair_transformer import MultiModal
 import numpy as np
 from scipy.stats import spearmanr
 from cqrtrain import contrastive_loss
@@ -35,7 +35,8 @@ def train(args):
         logging.info("Initializing from scratch.")
     # 4. create loss_object and recorders
     loss_object = MSE
-    loss_object_tag = tf.keras.losses.BinaryCrossentropy(reduction=tf.keras.losses.Reduction.NONE)
+    loss_kl = tf.keras.losses.KLDivergence()
+    # loss_object_tag = tf.keras.losses.BinaryCrossentropy(reduction=tf.keras.losses.Reduction.NONE)
     train_recorder, val_recorder = Recorder(), Recorder()
 
     # 5. define train and valid step_1 function
@@ -53,9 +54,10 @@ def train(args):
             #loss_1 = contrastive_loss(vision_embedding, bert_embedding) * 5.0
             predictions = tf.concat([predictions_1, predictions_2], 0)
             labels = tf.concat([labels_1, labels_2], 0)
-            loss_1 = loss_object_tag(labels, predictions) * labels.shape[-1]  # convert mean back to sum
+            # loss_1 = loss_object_tag(labels, predictions) * labels.shape[-1]  # convert mean back to sum
+            loss_1 = loss_kl(label_sims, sim)
             #loss_1 = KL(sim,label_sims)
-            loss = loss_0 + loss_1
+            loss = loss_0 + args.kl_weight*loss_1
         gradients = tape.gradient(loss, model.get_variables())
         model.optimize(gradients)
         train_recorder.record(loss, loss_0, loss_1)
@@ -72,12 +74,14 @@ def train(args):
         final_embedding_2 = tf.math.l2_normalize(final_embedding_2, axis=1)
         sim = tf.reduce_sum(final_embedding_1 * final_embedding_2, axis=1)
         loss_0 = loss_object(sim, label_sims)
+        
         #loss_1 = contrastive_loss(vision_embedding, bert_embedding) * 10.0
         predictions = tf.concat([predictions_1, predictions_2], 0)
         labels = tf.concat([labels_1, labels_2], 0)
-        loss_1 = loss_object_tag(labels, predictions) * labels.shape[-1]  # convert mean back to sum
+        # loss_1 = loss_object_tag(labels, predictions) * labels.shape[-1]  # convert mean back to sum
+        loss_1 = loss_kl(label_sims, sim)
         #loss_1 = KL(sim,label_sims)
-        loss = loss_0 + loss_1
+        loss = loss_0 + args.kl_weight*loss_1
         val_recorder.record(loss, loss_0, loss_1)
         return vids_1, sim, label_sims
     # import pdb;pdb.set_trace()
