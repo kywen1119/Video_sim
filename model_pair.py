@@ -15,7 +15,7 @@ class NeXtVLAD(tf.keras.layers.Layer):
         self.expand_dense = tf.keras.layers.Dense(self.expansion * self.feature_size)
         # for group attention
         self.attention_dense = tf.keras.layers.Dense(self.groups, activation=tf.nn.sigmoid)
-        # self.activation_bn = tf.keras.layers.BatchNormalization()
+        self.activation_bn = tf.keras.layers.BatchNormalization() # MODIFY HERE
 
         # for cluster weights
         self.cluster_dense1 = tf.keras.layers.Dense(self.groups * self.cluster_size, activation=None, use_bias=False)
@@ -43,7 +43,7 @@ class NeXtVLAD(tf.keras.layers.Layer):
         reshaped_input = tf.reshape(inputs, [-1, self.expansion * self.feature_size])
 
         activation = self.cluster_dense1(reshaped_input)
-        # activation = self.activation_bn(activation)
+        activation = self.activation_bn(activation) # MODIFY HERE
         activation = tf.reshape(activation, [-1, num_segments * self.groups, self.cluster_size])
         activation = tf.nn.softmax(activation, axis=-1)  # shape: batch_size * (max_frame*groups) * cluster_size
         activation = tf.multiply(activation, attention)  # shape: batch_size * (max_frame*groups) * cluster_size
