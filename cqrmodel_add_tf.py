@@ -111,7 +111,7 @@ class MultiModal(Model):
         self.num_labels = config.num_labels
         self.classifier = tf.keras.layers.Dense(self.num_labels, activation='sigmoid')
         self.bert_map = tf.keras.layers.Dense(1024, activation ='relu')
-        self.frame_feat_fc = tf.keras.layers.Dense(config.hidden_size)
+        # self.frame_feat_fc = tf.keras.layers.Dense(config.hidden_size)
 
         self.bert_optimizer, self.bert_lr = create_optimizer(init_lr=config.bert_lr,
                                                              num_train_steps=config.bert_total_steps,
@@ -127,7 +127,7 @@ class MultiModal(Model):
         frame_num = tf.reshape(inputs['num_frames'], [-1])
 
         video_tf_embedding, _ = self.video_tf([inputs['frames'], frame_num]) # b,32,1536
-        video_tf_embedding = self.frame_feat_fc(video_tf_embedding)
+        # video_tf_embedding = self.frame_feat_fc(video_tf_embedding)
         vision_embedding = self.nextvlad([video_tf_embedding, frame_num])
         vision_embedding = vision_embedding * tf.cast(tf.expand_dims(frame_num, -1) > 0, tf.float32)
         final_embedding = self.fusion([vision_embedding, bert_embedding])
@@ -141,7 +141,7 @@ class MultiModal(Model):
             self.num_bert = len(self.bert_variables)
             self.normal_variables = self.nextvlad.trainable_variables + self.fusion.trainable_variables + \
                                     self.classifier.trainable_variables + self.bert_map.trainable_variables + \
-                                    self.video_tf.trainable_variables + self.frame_feat_fc.trainable_variables
+                                    self.video_tf.trainable_variables #+ self.frame_feat_fc.trainable_variables
             self.all_variables = self.bert_variables + self.normal_variables
         return self.all_variables
 
