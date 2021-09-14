@@ -262,7 +262,7 @@ class Transformer_Encoder(tf.keras.layers.Layer):
 class Video_transformer(tf.keras.layers.Layer):
     def __init__(self, num_hidden_layers=1, output_size=1024, seq_len=32, dropout=0.2):
         super().__init__()
-        # self.fc = tf.keras.layers.Dense(output_size, activation='relu')
+        self.fc = tf.keras.layers.Dense(output_size, activation='relu')
 
         self.frame_tf_encoder = Transformer_Encoder(num_layers=num_hidden_layers,
                                                    d_model=output_size,
@@ -281,7 +281,7 @@ class Video_transformer(tf.keras.layers.Layer):
         i_mask = tf.expand_dims(image_mask, 1) # b,1,32
         i_mask = tf.expand_dims(i_mask, 1) # b,1,1,32
         attention_mask = tf.cast(tf.tile(i_mask, [1,self.num_heads,num_segments,1]), tf.float32)
-        # image_embeddings = self.fc(image_embeddings)
+        image_embeddings = self.fc(image_embeddings)
         # image_embeddings += self.pos_encoding
         x = self.frame_tf_encoder(image_embeddings, mask=attention_mask)
         return x, 1.0-images_mask

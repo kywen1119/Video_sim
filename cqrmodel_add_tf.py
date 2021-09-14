@@ -107,6 +107,7 @@ class MultiModal(Model):
                                  output_size=config.vlad_hidden_size, dropout=config.dropout)
         self.video_tf = Video_transformer(num_hidden_layers=1, output_size=config.frame_embedding_size, 
                                         seq_len=config.max_frames, dropout=config.dropout)
+        self.fusion_vis = ConcatDenseSE(config.hidden_size, config.se_ratio)
         self.fusion = ConcatDenseSE(config.hidden_size, config.se_ratio)
         self.num_labels = config.num_labels
         self.classifier = tf.keras.layers.Dense(self.num_labels, activation='sigmoid')
@@ -121,19 +122,21 @@ class MultiModal(Model):
                                                    num_warmup_steps=config.warmup_steps)
         self.bert_variables, self.num_bert, self.normal_variables, self.all_variables = None, None, None, None
 
-    def call(self, inputs, **kwargs):
+    def call(self, inputs, **kwargs): # 试了下串行的不太行，试一下并行的
         bert_embedding = self.bert([inputs['input_ids'], inputs['mask']])[1]
         bert_embedding = self.bert_map(bert_embedding)
         frame_num = tf.reshape(inputs['num_frames'], [-1])
 
         video_tf_embedding, _ = self.video_tf([inputs['frames'], frame_num]) # b,32,1536
+        video_tf_embedding = tf.reduce_max(video_tf_embedding, 1)
         # video_tf_embedding = self.frame_feat_fc(video_tf_embedding)
-        vision_embedding = self.nextvlad([video_tf_embedding, frame_num])
+        vision_embedding = self.nextvlad([inputs['frames'], frame_num])
         vision_embedding = vision_embedding * tf.cast(tf.expand_dims(frame_num, -1) > 0, tf.float32)
-        final_embedding = self.fusion([vision_embedding, bert_embedding])
+        visual_emb = self.fusion_vis([vision_embedding, video_tf_embedding])
+        final_embedding = self.fusion([visual_emb, bert_embedding])
         predictions = self.classifier(final_embedding)
 
-        return predictions, final_embedding, vision_embedding, bert_embedding
+        return predictions, final_embedding, visual_emb, bert_embedding
 
     def get_variables(self):
         if not self.all_variables:  # is None, not initialized
@@ -141,7 +144,7 @@ class MultiModal(Model):
             self.num_bert = len(self.bert_variables)
             self.normal_variables = self.nextvlad.trainable_variables + self.fusion.trainable_variables + \
                                     self.classifier.trainable_variables + self.bert_map.trainable_variables + \
-                                    self.video_tf.trainable_variables #+ self.frame_feat_fc.trainable_variables
+                                    self.video_tf.trainable_variables + self.fusion_vis.trainable_variables
             self.all_variables = self.bert_variables + self.normal_variables
         return self.all_variables
 
