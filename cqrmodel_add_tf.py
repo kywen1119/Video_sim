@@ -107,7 +107,7 @@ class MultiModal(Model):
                                  output_size=config.vlad_hidden_size, dropout=config.dropout)
         self.video_tf = Video_transformer(num_hidden_layers=1, output_size=config.frame_embedding_size, 
                                         seq_len=config.max_frames, dropout=config.dropout)
-        self.fusion_vis = ConcatDenseSE(config.hidden_size, config.se_ratio)
+        self.fusion_vis = ConcatDenseSE(config.vlad_hidden_size, config.se_ratio)
         self.fusion = ConcatDenseSE(config.hidden_size, config.se_ratio)
         self.num_labels = config.num_labels
         self.classifier = tf.keras.layers.Dense(self.num_labels, activation='sigmoid')
