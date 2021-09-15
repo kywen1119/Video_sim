@@ -125,7 +125,7 @@ class MultiModal(Model):
         bert_embedding_1 = self.bert_map(bert_embedding_1)
         frame_num_1 = tf.reshape(inputs['num_frames_1'], [-1])
 
-        video_tf_embedding_1, _ = self.video_tf([inputs['frames'], frame_num_1]) # b,32,1536
+        video_tf_embedding_1, _ = self.video_tf([inputs['frames_1'], frame_num_1]) # b,32,1536
         video_tf_embedding_1 = tf.reduce_max(video_tf_embedding_1, 1)
 
         vision_embedding_1 = self.nextvlad([inputs['frames_1'], frame_num_1])
@@ -138,7 +138,7 @@ class MultiModal(Model):
         bert_embedding_2 = self.bert_map(bert_embedding_2)
         frame_num_2 = tf.reshape(inputs['num_frames_2'], [-1])
 
-        video_tf_embedding_2, _ = self.video_tf([inputs['frames'], frame_num_1]) # b,32,1536
+        video_tf_embedding_2, _ = self.video_tf([inputs['frames_2'], frame_num_2]) # b,32,1536
         video_tf_embedding_2 = tf.reduce_max(video_tf_embedding_2, 1)
 
         vision_embedding_2 = self.nextvlad([inputs['frames_2'], frame_num_2])
