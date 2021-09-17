@@ -172,13 +172,13 @@ class MultiModal_mix2(Model):
         self.classifier = tf.keras.layers.Dense(self.num_labels, activation='sigmoid')
         self.bert_map = tf.keras.layers.Dense(1024, activation ='relu')
 
-        self.bert_optimizer, self.bert_lr = create_optimizer(init_lr=config.bert_lr,
+        self.bert_optimizer_1, self.bert_lr_1 = create_optimizer(init_lr=config.bert_lr,
                                                              num_train_steps=config.bert_total_steps,
                                                              num_warmup_steps=config.bert_warmup_steps)
-        self.optimizer, self.lr = create_optimizer(init_lr=config.lr,
+        self.optimizer_1, self.lr_1 = create_optimizer(init_lr=config.lr,
                                                    num_train_steps=config.total_steps,
                                                    num_warmup_steps=config.warmup_steps)
-        self.bert_variables, self.num_bert, self.normal_variables, self.all_variables = None, None, None, None
+        self.bert_variables_1, self.num_bert_1, self.normal_variables_1, self.all_variables_1 = None, None, None, None
 
     def call(self, inputs, **kwargs):
         bert_embedding_1 = self.bert([inputs['input_ids_1'], inputs['mask_1']])[1]
@@ -237,18 +237,18 @@ class MultiModal_mix2(Model):
         return final_embedding_1, final_embedding_2, predictions_1, predictions_2
 
     def get_variables(self):
-        if not self.all_variables:  # is None, not initialized
-            self.bert_variables = self.bert.trainable_variables
-            self.num_bert = len(self.bert_variables)
-            self.normal_variables = self.nextvlad_1.trainable_variables + self.fusion.trainable_variables + \
+        if not self.all_variables_1:  # is None, not initialized
+            self.bert_variables_1 = self.bert.trainable_variables
+            self.num_bert_1 = len(self.bert_variables_1)
+            self.normal_variables_1 = self.nextvlad_1.trainable_variables + self.fusion.trainable_variables + \
                                     self.nextvlad_2.trainable_variables + self.nextvlad_3.trainable_variables + \
                                     self.bn.trainable_variables + self.mix_weights.trainable_variables + \
                                     self.classifier.trainable_variables + self.bert_map.trainable_variables # 这个之前忘记加了
-            self.all_variables = self.bert_variables + self.normal_variables
-        return self.all_variables
+            self.all_variables_1 = self.bert_variables_1 + self.normal_variables_1
+        return self.all_variables_1
 
     def optimize(self, gradients):
-        bert_gradients = gradients[:self.num_bert]
-        self.bert_optimizer.apply_gradients(zip(bert_gradients, self.bert_variables))
-        normal_gradients = gradients[self.num_bert:]
-        self.optimizer.apply_gradients(zip(normal_gradients, self.normal_variables))
+        bert_gradients_1 = gradients[:self.num_bert_1]
+        self.bert_optimizer_1.apply_gradients(zip(bert_gradients_1, self.bert_variables_1))
+        normal_gradients_1 = gradients[self.num_bert_1:]
+        self.optimizer_1.apply_gradients(zip(normal_gradients_1, self.normal_variables_1))
