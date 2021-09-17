@@ -124,7 +124,7 @@ class MultiModal_mix(Model):
         # 原文用frame+audio的特征在dim1求mean
         self.mix_weights = tf.keras.layers.Dense(3)
         self.bn = tf.keras.layers.BatchNormalization()
-        self.cl_temperature = 2
+        self.cl_temperature = 2.0
         self.cl_lambda = 1.0
         
         self.bert_optimizer, self.bert_lr = create_optimizer(init_lr=config.bert_lr,
@@ -140,43 +140,46 @@ class MultiModal_mix(Model):
         bert_embedding = self.bert_map(bert_embedding)
         frame_num = tf.reshape(inputs['num_frames'], [-1])
         # frt_mean
-        frt_mean = tf.reduce_mean(inputs['num_frames'], axis=1)
+        frt_mean = tf.reduce_mean(inputs['frames'], axis=1)
         frt_mean = self.bn(frt_mean)
         mix_weights = self.mix_weights(frt_mean) # b,3
         mix_weights = tf.nn.softmax(mix_weights, axis=-1)
         # 1
         vision_embedding_1 = self.nextvlad_1([inputs['frames'], frame_num])
         vision_embedding_1 = vision_embedding_1 * tf.cast(tf.expand_dims(frame_num, -1) > 0, tf.float32)
-        final_embedding_1 = self.fusion([vision_embedding_1, bert_embedding])
+        final_embedding_1 = self.fusion_1([vision_embedding_1, bert_embedding])
         logits_1 = self.classifier_1(final_embedding_1)
         predictions_1 = tf.nn.sigmoid(logits_1)
         # 2
         vision_embedding_2 = self.nextvlad_2([inputs['frames'], frame_num])
         vision_embedding_2 = vision_embedding_2 * tf.cast(tf.expand_dims(frame_num, -1) > 0, tf.float32)
-        final_embedding_2 = self.fusion([vision_embedding_2, bert_embedding])
+        final_embedding_2 = self.fusion_2([vision_embedding_2, bert_embedding])
         logits_2 = self.classifier_2(final_embedding_2)
         predictions_2 = tf.nn.sigmoid(logits_2)
         # 3
         vision_embedding_3 = self.nextvlad_3([inputs['frames'], frame_num])
         vision_embedding_3 = vision_embedding_3 * tf.cast(tf.expand_dims(frame_num, -1) > 0, tf.float32)
-        final_embedding_3 = self.fusion([vision_embedding_3, bert_embedding])
+        final_embedding_3 = self.fusion_3([vision_embedding_3, bert_embedding])
         logits_3 = self.classifier_3(final_embedding_3)
         predictions_3 = tf.nn.sigmoid(logits_3)
         # mix
         aux_preds = [predictions_1, predictions_2, predictions_3]
         logits = [logits_1, logits_2, logits_3]
         logits = tf.stack(logits, axis=1)
+        embeddings = [final_embedding_1, final_embedding_2, final_embedding_3]
+        embeddings = tf.stack(embeddings, axis=1)
         mix_logit = tf.reduce_sum(tf.multiply(tf.expand_dims(mix_weights, -1), logits), axis=1)
+        mix_embedding = tf.reduce_sum(tf.multiply(tf.expand_dims(mix_weights, -1), embeddings), axis=1)
         pred = tf.nn.sigmoid(mix_logit)
         # kl loss
-        rank_pred = tf.expand_dims(tf.nn.softmax(tf.div(mix_logit, self.cl_temperature), axis=-1), axis=1)
-        aux_rank_preds = tf.nn.softmax(tf.div(logits, self.cl_temperature), axis=-1)
+        rank_pred = tf.expand_dims(tf.nn.softmax(mix_logit/self.cl_temperature, axis=-1), axis=1)
+        aux_rank_preds = tf.nn.softmax((logits/self.cl_temperature), axis=-1)
         epsilon = 1e-8
-        kl_loss = tf.reduce_sum(rank_pred * (tf.log(rank_pred + epsilon) - tf.log(aux_rank_preds + epsilon)),
+        kl_loss = tf.reduce_sum(rank_pred * (tf.math.log(rank_pred + epsilon) - tf.math.log(aux_rank_preds + epsilon)),
                                 axis=-1)
 
         regularization_loss = self.cl_lambda * tf.reduce_mean(tf.reduce_sum(kl_loss, axis=-1), axis=-1)
-        return pred, aux_preds, regularization_loss#, vision_embedding, bert_embedding
+        return pred, aux_preds, regularization_loss, mix_embedding#, vision_embedding, bert_embedding
 
     def get_variables(self):
         if not self.all_variables:  # is None, not initialized
@@ -188,6 +191,79 @@ class MultiModal_mix(Model):
                                     self.nextvlad_2.trainable_variables + self.fusion_2.trainable_variables + \
                                     self.classifier_2.trainable_variables + self.nextvlad_3.trainable_variables + \
                                     self.fusion_3.trainable_variables + self.classifier_3.trainable_variables
+            self.all_variables = self.bert_variables + self.normal_variables
+        return self.all_variables
+
+    def optimize(self, gradients):
+        bert_gradients = gradients[:self.num_bert]
+        self.bert_optimizer.apply_gradients(zip(bert_gradients, self.bert_variables))
+        normal_gradients = gradients[self.num_bert:]
+        self.optimizer.apply_gradients(zip(normal_gradients, self.normal_variables))
+
+
+class MultiModal_mix2(Model):
+    def __init__(self, config, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.bert = TFBertModel.from_pretrained(config.bert_dir)
+        self.nextvlad_1 = NeXtVLAD(config.frame_embedding_size, config.vlad_cluster_size,
+                                 output_size=config.vlad_hidden_size, dropout=config.dropout)
+        self.nextvlad_2 = NeXtVLAD(config.frame_embedding_size, config.vlad_cluster_size,
+                                 output_size=config.vlad_hidden_size, dropout=config.dropout)
+        self.nextvlad_3 = NeXtVLAD(config.frame_embedding_size, config.vlad_cluster_size,
+                                 output_size=config.vlad_hidden_size, dropout=config.dropout)
+        self.mix_weights = tf.keras.layers.Dense(3)
+        self.bn = tf.keras.layers.BatchNormalization()
+
+        self.fusion = ConcatDenseSE(config.hidden_size, config.se_ratio)
+        self.num_labels = config.num_labels
+        self.classifier = tf.keras.layers.Dense(self.num_labels, activation='sigmoid')
+        self.bert_map = tf.keras.layers.Dense(1024, activation ='relu')
+
+        self.bert_optimizer, self.bert_lr = create_optimizer(init_lr=config.bert_lr,
+                                                             num_train_steps=config.bert_total_steps,
+                                                             num_warmup_steps=config.bert_warmup_steps)
+        self.optimizer, self.lr = create_optimizer(init_lr=config.lr,
+                                                   num_train_steps=config.total_steps,
+                                                   num_warmup_steps=config.warmup_steps)
+        self.bert_variables, self.num_bert, self.normal_variables, self.all_variables = None, None, None, None
+
+    def call(self, inputs, **kwargs):
+        bert_embedding = self.bert([inputs['input_ids'], inputs['mask']])[1]
+        bert_embedding = self.bert_map(bert_embedding)
+        # frt_mean
+        frt_mean = tf.reduce_mean(inputs['frames'], axis=1)
+        frt_mean = self.bn(frt_mean)
+        mix_weights = self.mix_weights(frt_mean) # b,3
+        mix_weights = tf.nn.softmax(mix_weights, axis=-1)
+        # 3 nextvlad -> weighted add
+        frame_num = tf.reshape(inputs['num_frames'], [-1])
+        # 1
+        vision_embedding_1 = self.nextvlad_1([inputs['frames'], frame_num])
+        vision_embedding_1 = vision_embedding_1 * tf.cast(tf.expand_dims(frame_num, -1) > 0, tf.float32)
+        # 2
+        vision_embedding_2 = self.nextvlad_2([inputs['frames'], frame_num])
+        vision_embedding_2 = vision_embedding_2 * tf.cast(tf.expand_dims(frame_num, -1) > 0, tf.float32)
+        # 3
+        vision_embedding_3 = self.nextvlad_3([inputs['frames'], frame_num])
+        vision_embedding_3 = vision_embedding_3 * tf.cast(tf.expand_dims(frame_num, -1) > 0, tf.float32)
+        # mix frame feature
+        vision_embedding = [vision_embedding_1, vision_embedding_2, vision_embedding_3]
+        vision_embedding = tf.stack(vision_embedding, axis=1)
+        mix_vision_embedding = tf.reduce_sum(tf.multiply(tf.expand_dims(mix_weights, -1), vision_embedding), axis=1)
+
+        final_embedding = self.fusion([mix_vision_embedding, bert_embedding])
+        predictions = self.classifier(final_embedding)
+
+        return predictions, final_embedding, mix_vision_embedding, bert_embedding
+
+    def get_variables(self):
+        if not self.all_variables:  # is None, not initialized
+            self.bert_variables = self.bert.trainable_variables
+            self.num_bert = len(self.bert_variables)
+            self.normal_variables = self.nextvlad_1.trainable_variables + self.fusion.trainable_variables + \
+                                    self.nextvlad_2.trainable_variables + self.nextvlad_3.trainable_variables + \
+                                    self.bn.trainable_variables + self.mix_weights.trainable_variables + \
+                                    self.classifier.trainable_variables + self.bert_map.trainable_variables # 这个之前忘记加了
             self.all_variables = self.bert_variables + self.normal_variables
         return self.all_variables
 

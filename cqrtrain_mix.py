@@ -7,7 +7,7 @@ from tensorflow import keras
 from cqrconfig import parser
 from data_helper import create_datasets
 from cqrmetrics import Recorder
-from cqrmodel_mix import MultiModal
+from cqrmodel_mix import MultiModal_mix2 as MultiModal
 from util import test_spearmanr
 
 def contrastive_loss(projections_1, projections_2):
@@ -59,27 +59,23 @@ def train(args):
     def train_step(inputs):
         labels = inputs['labels']
         with tf.GradientTape() as tape:
-            pred, aux_preds, regularization_loss = model(inputs, training=True)
-            loss_0 = loss_object(labels, pred) * labels.shape[-1]  # convert mean back to sum
-            for aux_pred in aux_preds:
-                loss_0 += loss_object(labels, aux_pred) * labels.shape[-1]
-            loss_1 = regularization_loss # contrastive_loss(vision_embedding, bert_embedding) * 10.0
+            predictions, _, vision_embedding, bert_embedding = model(inputs, training=True)
+            loss_0 = loss_object(labels, predictions) * labels.shape[-1]  # convert mean back to sum
+            loss_1 = contrastive_loss(vision_embedding, bert_embedding) * 10.0
             loss = loss_0 + loss_1
         gradients = tape.gradient(loss, model.get_variables())
         model.optimize(gradients)
-        train_recorder.record(loss, loss_0, loss_1, labels, pred)
+        train_recorder.record(loss, loss_0, loss_1, labels, predictions)
 
     @tf.function
     def val_step(inputs):
         vids = inputs['vid']
         labels = inputs['labels']
-        pred, aux_preds, regularization_loss = model(inputs, training=False)
-        loss_0 = loss_object(labels, pred) * labels.shape[-1]  # convert mean back to sum
-        for aux_pred in aux_preds:
-            loss_0 += loss_object(labels, aux_pred) * labels.shape[-1]
-        loss_1 = regularization_loss # contrastive_loss(vision_embedding, bert_embedding) * 10.0
+        predictions, embeddings, vision_embedding, bert_embedding = model(inputs, training=False)
+        loss_0 = loss_object(labels, predictions) * labels.shape[-1]  # convert mean back to sum
+        loss_1 = contrastive_loss(vision_embedding, bert_embedding) *10.0
         loss = loss_0 + loss_1
-        val_recorder.record(loss,loss_0, loss_1, labels, pred)
+        val_recorder.record(loss,loss_0, loss_1, labels, predictions)
         return vids, embeddings
 
     # 6. training
