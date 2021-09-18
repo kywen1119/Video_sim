@@ -18,7 +18,7 @@ parser.add_argument('--val-batch-size', default=32, type=int)
 parser.add_argument('--test-batch-size', default=32, type=int)
 
 # ========================= Monitor Configs ==========================
-parser.add_argument('--print-freq', default=50, type=int, help='print frequency')
+parser.add_argument('--print-freq', default=200, type=int, help='print frequency')
 parser.add_argument('--eval-freq', default=1000, type=int, help='evaluation step frequency')
 
 # ======================== SavedModel Configs =========================
