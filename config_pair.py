@@ -27,7 +27,7 @@ parser.add_argument('--savedmodel-path', type=str, default='save/ft_pair_kl')
 parser.add_argument('--pretrain_model_dir', type=str, default='save/pair_1')
 parser.add_argument('--kl-weight', default=0.2, type=float, help='weight of KL loss')
 parser.add_argument('--ckpt-file', type=str, default='save/ft_pair_20e_tag/ckpt-11240')
-parser.add_argument('--max-to-keep', default=3, type=int, help='the number of checkpoints to keep')
+parser.add_argument('--max-to-keep', default=1, type=int, help='the number of checkpoints to keep')
 parser.add_argument('--start-epoch', default=0, type=int, help='manual epoch number (useful on restarts)')
 
 # ========================= Learning Configs ==========================
