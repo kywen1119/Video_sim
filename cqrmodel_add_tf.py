@@ -2,7 +2,7 @@ import tensorflow as tf
 from tensorflow.python.keras.models import Model
 from transformers import TFBertModel, create_optimizer
 from transformers.models.bert.modeling_tf_bert import TFBertMLMHead
-from model_transformer import Video_transformer
+from model_transformer import Video_transformer, Transformer_Encoder
 
 
 class NeXtVLAD(tf.keras.layers.Layer):
@@ -212,6 +212,104 @@ class MultiModal_mlm(Model):
             self.normal_variables = self.nextvlad.trainable_variables + self.fusion.trainable_variables + \
                                     self.classifier.trainable_variables + self.bert_map.trainable_variables + \
                                     self.mlm.trainable_variables
+            self.all_variables = self.bert_variables + self.normal_variables
+        return self.all_variables
+
+    def optimize(self, gradients):
+        bert_gradients = gradients[:self.num_bert]
+        self.bert_optimizer.apply_gradients(zip(bert_gradients, self.bert_variables))
+        normal_gradients = gradients[self.num_bert:]
+        self.optimizer.apply_gradients(zip(normal_gradients, self.normal_variables))
+
+
+class MultiModalV2(Model):
+    def __init__(self, config, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.bert = TFBertModel.from_pretrained(config.bert_dir)
+        #self.nextvlad = NeXtVLAD(config.frame_embedding_size, config.vlad_cluster_size,
+        #                         output_size=config.vlad_hidden_size, dropout=config.dropout)
+        #self.fusion = ConcatDenseSE(config.hidden_size, config.se_ratio)
+        self.num_labels = config.num_labels
+
+        # reduce the vision embedding dims
+        self.vision_transformer = Transformer_Encoder(num_layers=1,
+                                                      d_model=config.frame_embedding_size,
+                                                      num_heads=8,
+                                                      dff=config.frame_embedding_size*2,
+                                                      seq_len=config.max_frames)  # (bs, max_frames, 1024)
+        self.frame_feat_fc = tf.keras.layers.Dense(config.hidden_size)
+        self.frame_feat_fc_last = tf.keras.Sequential([
+            tf.keras.layers.Dense(1, activation='relu'),
+            tf.keras.layers.BatchNormalization(),
+        ])
+
+        # reduce the text embedding dims
+        self.text_feat_fc = tf.keras.Sequential([
+            tf.keras.layers.Dense(config.hidden_size, activation='relu'),
+            tf.keras.layers.BatchNormalization(),
+        ])
+        self.text_feat_fc_last = tf.keras.Sequential([
+            tf.keras.layers.Dense(1, activation='relu'),
+            tf.keras.layers.BatchNormalization(),
+        ])
+
+        # transformer's seq_len is totally length
+        self.transformer = Transformer_Encoder(num_layers=1,
+                                               d_model=config.hidden_size,
+                                               num_heads=4,
+                                               dff=config.hidden_size * 4,
+                                               seq_len=config.max_frames + config.bert_seq_length)  # (bs, total_seq_len, d_model)
+
+        self.multi_feat_fc = tf.keras.layers.Dense(1, activation='relu')
+
+        self.dropout = tf.keras.layers.Dropout(config.dropout)
+
+        self.classifier = tf.keras.layers.Dense(self.num_labels, activation='sigmoid')
+
+        self.bert_optimizer, self.bert_lr = create_optimizer(init_lr=config.bert_lr,
+                                                             num_train_steps=config.bert_total_steps,
+                                                             num_warmup_steps=config.bert_warmup_steps)
+        self.optimizer, self.lr = create_optimizer(init_lr=config.lr,
+                                                   num_train_steps=config.total_steps,
+                                                   num_warmup_steps=config.warmup_steps)
+        self.bert_variables, self.num_bert, self.normal_variables, self.all_variables = None, None, None, None
+
+    def call(self, inputs, training, **kwargs):
+        bert_embedding = self.bert([inputs['input_ids'], inputs['mask']], training)[0] # 0: last_hidden_state, 1: poller_output
+        bert_embedding = self.text_feat_fc(bert_embedding)  # [bs, bert_seq_length, feature_dims]
+
+        frame_num = tf.reshape(inputs['num_frames'], [-1]) # frame num
+        vision_embedding = inputs['frames'] # [bs, max_frames, 1536]
+        vision_embedding = self.vision_transformer(vision_embedding) # [bs, max_frames, 1536]
+        vision_embedding = self.frame_feat_fc(vision_embedding)  # [bs, max_frames, hidden_size]
+
+        embedding = tf.concat([vision_embedding, bert_embedding], axis=1)
+        embedding = self.transformer(embedding)  # (bs, total_seq_len, d_model)
+        embedding = tf.transpose(embedding, perm=[0, 2, 1])  # (bs, d_model, total_seq_len)
+        embedding = self.multi_feat_fc(embedding)
+        embedding = tf.squeeze(embedding) # [bs, d_model]
+
+        vision_embedding = tf.transpose(vision_embedding, perm=[0, 2, 1])  # [bs, hidden_size, max_frames]
+        vision_embedding = self.frame_feat_fc_last(vision_embedding)  # [bs, hidden_size, 1]
+        vision_embedding = tf.squeeze(vision_embedding)
+
+        bert_embedding = tf.transpose(bert_embedding, perm=[0, 2, 1])  # [bs, hidden_size, bert_seq_length]
+        bert_embedding = self.text_feat_fc_last(bert_embedding)  # [bs, hidden_size, 1]
+        bert_embedding = tf.squeeze(bert_embedding)
+
+        predictions = self.dropout(embedding, training=training)
+        predictions = self.classifier(predictions)
+
+        return predictions, embedding, vision_embedding, bert_embedding
+
+    def get_variables(self):
+        if not self.all_variables:  # is None, not initialized
+            self.bert_variables = self.bert.trainable_variables
+            self.num_bert = len(self.bert_variables)
+            self.normal_variables = self.text_feat_fc.trainable_variables + self.vision_transformer.trainable_variables + \
+                                    self.frame_feat_fc.trainable_variables + self.transformer.trainable_variables + \
+                                    self.multi_feat_fc.trainable_variables + self.frame_feat_fc_last.trainable_variables + \
+                                    self.text_feat_fc_last.trainable_variables + self.classifier.trainable_variables
             self.all_variables = self.bert_variables + self.normal_variables
         return self.all_variables
 
