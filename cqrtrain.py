@@ -7,7 +7,7 @@ from tensorflow import keras
 from cqrconfig import parser
 from data_helper import create_datasets
 from cqrmetrics import Recorder
-from cqrmodel_add_tf import MultiModalV2 as MultiModal
+from cqrmodel import MultiModal_soft as MultiModal
 from util import test_spearmanr
 
 def contrastive_loss(projections_1, projections_2):

@@ -67,6 +67,49 @@ class NeXtVLAD(tf.keras.layers.Layer):
         return vlad
 
 
+class SoftDBoF(tf.keras.layers.Layer):
+    def __init__(self, feature_size,cluster_size,dropout,output_size):
+        super().__init__()
+        self.feature_size = feature_size
+        # self.add_batch_norm = add_batch_norm
+        self.cluster_size = cluster_size
+        # self.max_pool = max_pool
+        self.activation_bn = tf.keras.layers.BatchNormalization()
+        self.cluster_dense1 = tf.keras.layers.Dense(self.cluster_size, activation=None, use_bias=False)
+        self.dense = tf.keras.layers.Dense(self.feature_size)
+        self.dropout = tf.keras.layers.Dropout(rate=dropout, seed=1)
+        self.fc = tf.keras.layers.Dense(output_size, activation=None)
+
+    def build(self, input_shape):
+        self.cluster_weights2 = self.add_weight(name="cluster_weights2",
+                                                shape=(2, self.feature_size, self.cluster_size),
+                                                initializer=tf.keras.initializers.glorot_normal, trainable=True)
+        self.built = True
+
+    def call(self, inputs, training):
+        image_embeddings, mask = inputs
+        _, num_segments, _ = image_embeddings.shape
+        if mask is not None:  # in case num of images is less than num_segments
+            images_mask = tf.sequence_mask(mask, maxlen=num_segments)
+            images_mask = tf.cast(tf.expand_dims(images_mask, -1), tf.float32)
+            image_embeddings = tf.multiply(image_embeddings, images_mask)
+        image_embeddings = self.dense(image_embeddings) # b,32,1024
+        reshaped_input = tf.reshape(image_embeddings, [-1, self.feature_size])
+        activation = self.cluster_dense1(reshaped_input)
+        activation = self.activation_bn(activation)
+        activation = tf.nn.softmax(activation, axis=-1)
+        activation = tf.reshape(activation, [-1, num_segments, self.cluster_size])
+        activation_sum = tf.reduce_sum(activation,1)
+        activation_sum = tf.nn.l2_normalize(activation_sum,1)
+        activation_max = tf.reduce_max(activation,1)
+        activation_max = tf.nn.l2_normalize(activation_max,1)
+        activation = tf.concat([activation_sum,activation_max],1) # b,cluster_size*2
+
+        output = self.dropout(activation)
+        output = self.fc(output)
+        return output
+
+
 class Video_transformer(tf.keras.layers.Layer):
     def __init__(self, num_hidden_layers=1, output_size=1024, dropout=0.2):
         super().__init__()
@@ -159,6 +202,51 @@ class MultiModal(Model):
         normal_gradients = gradients[self.num_bert:]
         self.optimizer.apply_gradients(zip(normal_gradients, self.normal_variables))
 
+
+class MultiModal_soft(Model):
+    def __init__(self, config, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.bert = TFBertModel.from_pretrained(config.bert_dir)
+        self.softdbof = SoftDBoF(config.frame_embedding_size,config.vlad_cluster_size,
+                                dropout=config.dropout,output_size=config.vlad_hidden_size)
+        self.fusion = ConcatDenseSE(config.hidden_size, config.se_ratio)
+        self.num_labels = config.num_labels
+        self.classifier = tf.keras.layers.Dense(self.num_labels, activation='sigmoid')
+        self.bert_map = tf.keras.layers.Dense(1024, activation ='relu')
+
+        self.bert_optimizer, self.bert_lr = create_optimizer(init_lr=config.bert_lr,
+                                                             num_train_steps=config.bert_total_steps,
+                                                             num_warmup_steps=config.bert_warmup_steps)
+        self.optimizer, self.lr = create_optimizer(init_lr=config.lr,
+                                                   num_train_steps=config.total_steps,
+                                                   num_warmup_steps=config.warmup_steps)
+        self.bert_variables, self.num_bert, self.normal_variables, self.all_variables = None, None, None, None
+
+    def call(self, inputs, **kwargs):
+        bert_embedding = self.bert([inputs['input_ids'], inputs['mask']])[1]
+        bert_embedding = self.bert_map(bert_embedding)
+        frame_num = tf.reshape(inputs['num_frames'], [-1])
+        vision_embedding = self.softdbof([inputs['frames'], frame_num])
+        vision_embedding = vision_embedding * tf.cast(tf.expand_dims(frame_num, -1) > 0, tf.float32)
+        final_embedding = self.fusion([vision_embedding, bert_embedding])
+        predictions = self.classifier(final_embedding)
+
+        return predictions, final_embedding, vision_embedding, bert_embedding
+
+    def get_variables(self):
+        if not self.all_variables:  # is None, not initialized
+            self.bert_variables = self.bert.trainable_variables
+            self.num_bert = len(self.bert_variables)
+            self.normal_variables = self.softdbof.trainable_variables + self.fusion.trainable_variables + \
+                                    self.classifier.trainable_variables + self.bert_map.trainable_variables # 这个之前忘记加了
+            self.all_variables = self.bert_variables + self.normal_variables
+        return self.all_variables
+
+    def optimize(self, gradients):
+        bert_gradients = gradients[:self.num_bert]
+        self.bert_optimizer.apply_gradients(zip(bert_gradients, self.bert_variables))
+        normal_gradients = gradients[self.num_bert:]
+        self.optimizer.apply_gradients(zip(normal_gradients, self.normal_variables))
 
 class MultiModal_mlm(Model):
     def __init__(self, config, *args, **kwargs):
