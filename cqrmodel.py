@@ -304,7 +304,7 @@ class MultiModal_nextsoft(Model):
         super().__init__(*args, **kwargs)
         self.bert = TFBertModel.from_pretrained(config.bert_dir)
         self.nextsoftdbof = NextSoftDBoF(config.frame_embedding_size,config.vlad_cluster_size,
-                                dropout=config.dropout,output_size=config.vlad_hidden_size,groups=config.vlad-groups)
+                                dropout=config.dropout,output_size=config.vlad_hidden_size,groups=config.vlad_groups)
         self.fusion = ConcatDenseSE(config.hidden_size, config.se_ratio)
         self.num_labels = config.num_labels
         self.classifier = tf.keras.layers.Dense(self.num_labels, activation='sigmoid')
