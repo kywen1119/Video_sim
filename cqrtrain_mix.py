@@ -67,7 +67,7 @@ def train(args):
             loss_0 = loss_object(labels, pred) * labels.shape[-1]  # convert mean back to sum
             for pred_ in aux_preds:
                 loss_0 += loss_object(labels, pred_) * labels.shape[-1]
-            loss_1 = regularization_loss
+            loss_1 = regularization_loss * 10
             loss = loss_0 + loss_1
         gradients = tape.gradient(loss, model.get_variables())
         model.optimize(gradients)
