@@ -106,12 +106,15 @@ class MultiModal(Model):
         if config.agg_model == 'nextvlad':
             self.nextvlad = NeXtVLAD(config.frame_embedding_size, config.vlad_cluster_size,
                                     output_size=config.vlad_hidden_size, dropout=config.dropout)
+            self.model = 1
         elif config.agg_model == 'soft':
-            self.nextvlad = SoftDBoF(config.frame_embedding_size,config.vlad_cluster_size,
+            self.softdbof = SoftDBoF(config.frame_embedding_size,config.vlad_cluster_size,
                                 dropout=config.dropout,output_size=config.vlad_hidden_size)
+            self.model = 2
         elif config.agg_model == 'nextsoft':
-            self.nextvlad = NextSoftDBoF(config.frame_embedding_size,config.vlad_cluster_size,
+            self.nextsoftdbof = NextSoftDBoF(config.frame_embedding_size,config.vlad_cluster_size,
                                 dropout=config.dropout,output_size=config.vlad_hidden_size,groups=config.vlad_groups)
+            self.model = 3
         self.fusion = ConcatDenseSE(config.hidden_size, config.se_ratio)
         self.num_labels = config.num_labels
         self.classifier = tf.keras.layers.Dense(self.num_labels, activation='sigmoid')
@@ -128,7 +131,12 @@ class MultiModal(Model):
         bert_embedding_1 = self.bert([inputs['input_ids_1'], inputs['mask_1']])[1]
         bert_embedding_1 = self.bert_map(bert_embedding_1)
         frame_num_1 = tf.reshape(inputs['num_frames_1'], [-1])
-        vision_embedding_1 = self.nextvlad([inputs['frames_1'], frame_num_1])
+        if self.model == 1:
+            vision_embedding_1 = self.nextvlad([inputs['frames_1'], frame_num_1])
+        elif self.model == 2:
+            vision_embedding_1 = self.softdbof([inputs['frames_1'], frame_num_1])
+        elif self.model == 3:
+            vision_embedding_1 = self.nextsoftdbof([inputs['frames_1'], frame_num_1])
         vision_embedding_1 = vision_embedding_1 * tf.cast(tf.expand_dims(frame_num_1, -1) > 0, tf.float32)
         final_embedding_1 = self.fusion([vision_embedding_1, bert_embedding_1])
         predictions_1 = self.classifier(final_embedding_1)
@@ -136,7 +144,12 @@ class MultiModal(Model):
         bert_embedding_2 = self.bert([inputs['input_ids_2'], inputs['mask_2']])[1]
         bert_embedding_2 = self.bert_map(bert_embedding_2)
         frame_num_2 = tf.reshape(inputs['num_frames_2'], [-1])
-        vision_embedding_2 = self.nextvlad([inputs['frames_2'], frame_num_2])
+        if self.model == 1:
+            vision_embedding_2 = self.nextvlad([inputs['frames_2'], frame_num_2])
+        elif self.model == 2:
+            vision_embedding_2 = self.softdbof([inputs['frames_2'], frame_num_2])
+        elif self.model == 3:
+            vision_embedding_2 = self.nextsoftdbof([inputs['frames_2'], frame_num_2])
         vision_embedding_2 = vision_embedding_2 * tf.cast(tf.expand_dims(frame_num_2, -1) > 0, tf.float32)
         final_embedding_2 = self.fusion([vision_embedding_2, bert_embedding_2])
         predictions_2 = self.classifier(final_embedding_2)
@@ -150,8 +163,14 @@ class MultiModal(Model):
         if not self.all_variables_1:  # is None, not initialized
             self.bert_variables_1 = self.bert.trainable_variables
             self.num_bert_1 = len(self.bert_variables_1)
-            self.normal_variables_1 = self.nextvlad.trainable_variables + self.fusion.trainable_variables + \
+            self.normal_variables_1 = self.fusion.trainable_variables + \
                                     self.classifier.trainable_variables + self.bert_map.trainable_variables
+            if self.model == 1:
+                self.normal_variables_1 += self.nextvlad.trainable_variables 
+            elif self.model == 2:
+                self.normal_variables_1 += self.softdbof.trainable_variables 
+            elif self.model == 3:
+                self.normal_variables_1 += self.nextsoftdbof.trainable_variables 
             self.all_variables_1 = self.bert_variables_1 + self.normal_variables_1
         return self.all_variables_1
 
