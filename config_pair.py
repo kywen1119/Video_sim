@@ -38,6 +38,7 @@ parser.add_argument('--minimum-lr', default=0., type=float, help='minimum learni
 parser.add_argument('--lr', default=0.0005, type=float, help='initial learning rate')
 
 # ==================== Vision Modal Configs =======================
+parser.add_argument('--agg-model', type=str, default='nextvlad')
 parser.add_argument('--frame-embedding-size', type=int, default=1536)
 parser.add_argument('--max-frames', type=int, default=32)
 parser.add_argument('--vlad-cluster-size', type=int, default=64)

@@ -1,6 +1,7 @@
 import tensorflow as tf
 from tensorflow.python.keras.models import Model
 from transformers import TFBertModel, create_optimizer
+from cqrmodel import SoftDBoF, NextSoftDBoF
 
 
 class NeXtVLAD(tf.keras.layers.Layer):
@@ -102,8 +103,15 @@ class MultiModal(Model):
         super().__init__(*args, **kwargs)
         self.bert = TFBertModel.from_pretrained(config.bert_dir)
         self.bert_map = tf.keras.layers.Dense(1024, activation ='relu')
-        self.nextvlad = NeXtVLAD(config.frame_embedding_size, config.vlad_cluster_size,
-                                 output_size=config.vlad_hidden_size, dropout=config.dropout)
+        if config.agg_model == 'nextvlad':
+            self.nextvlad = NeXtVLAD(config.frame_embedding_size, config.vlad_cluster_size,
+                                    output_size=config.vlad_hidden_size, dropout=config.dropout)
+        elif config.agg_model == 'soft':
+            self.nextvlad = SoftDBoF(config.frame_embedding_size,config.vlad_cluster_size,
+                                dropout=config.dropout,output_size=config.vlad_hidden_size)
+        elif config.agg_model == 'nextsoft':
+            self.nextvlad = NextSoftDBoF(config.frame_embedding_size,config.vlad_cluster_size,
+                                dropout=config.dropout,output_size=config.vlad_hidden_size,groups=config.vlad_groups)
         self.fusion = ConcatDenseSE(config.hidden_size, config.se_ratio)
         self.num_labels = config.num_labels
         self.classifier = tf.keras.layers.Dense(self.num_labels, activation='sigmoid')
