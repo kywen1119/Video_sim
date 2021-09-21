@@ -168,6 +168,12 @@ class MultiModal_mix(Model):
         logits = tf.stack(logits, axis=1)
         embeddings = [final_embedding_1, final_embedding_2, final_embedding_3]
         embeddings = tf.stack(embeddings, axis=1)
+        # vision
+        vision_embedding = [vision_embedding_1, vision_embedding_2, vision_embedding_3]
+        vision_embedding = tf.stack(vision_embedding, axis=1)
+        vision_embedding = [vision_embedding_1, vision_embedding_2, vision_embedding_3]
+        vision_embedding = tf.stack(vision_embedding, axis=1)
+        mix_vision_embedding = tf.reduce_sum(tf.multiply(tf.expand_dims(mix_weights, -1), vision_embedding), axis=1)
         mix_logit = tf.reduce_sum(tf.multiply(tf.expand_dims(mix_weights, -1), logits), axis=1)
         mix_embedding = tf.reduce_sum(tf.multiply(tf.expand_dims(mix_weights, -1), embeddings), axis=1)
         pred = tf.nn.sigmoid(mix_logit)
@@ -179,7 +185,7 @@ class MultiModal_mix(Model):
                                 axis=-1)
 
         regularization_loss = self.cl_lambda * tf.reduce_mean(tf.reduce_sum(kl_loss, axis=-1), axis=-1)
-        return pred, aux_preds, regularization_loss, mix_embedding#, vision_embedding, bert_embedding
+        return pred, aux_preds, regularization_loss, mix_embedding, mix_vision_embedding, bert_embedding
 
     def get_variables(self):
         if not self.all_variables:  # is None, not initialized

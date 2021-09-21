@@ -63,15 +63,16 @@ def train(args):
             # loss_0 = loss_object(labels, predictions) * labels.shape[-1]  # convert mean back to sum
             # loss_1 = contrastive_loss(vision_embedding, bert_embedding) * 10.0
             # loss = loss_0 + loss_1
-            pred, aux_preds, regularization_loss, mix_embedding = model(inputs, training=True)
+            pred, aux_preds, regularization_loss, mix_embedding, vision_embedding, bert_embedding = model(inputs, training=True)
             loss_0 = loss_object(labels, pred) * labels.shape[-1]  # convert mean back to sum
             for pred_ in aux_preds:
                 loss_0 += loss_object(labels, pred_) * labels.shape[-1]
             loss_1 = regularization_loss * 10
-            loss = loss_0 + loss_1
+            loss_2 = contrastive_loss(vision_embedding, bert_embedding) * 10.0
+            loss = loss_0 + loss_1 + loss_2
         gradients = tape.gradient(loss, model.get_variables())
         model.optimize(gradients)
-        train_recorder.record(loss, loss_0, loss_1, labels, pred)
+        train_recorder.record(loss, loss_0, loss_2, labels, pred)
 
     @tf.function
     def val_step(inputs):
@@ -81,13 +82,14 @@ def train(args):
         # loss_0 = loss_object(labels, predictions) * labels.shape[-1]  # convert mean back to sum
         # loss_1 = contrastive_loss(vision_embedding, bert_embedding) *10.0
         # loss = loss_0 + loss_1
-        pred, aux_preds, regularization_loss, mix_embedding = model(inputs, training=False)
+        pred, aux_preds, regularization_loss, mix_embedding, vision_embedding, bert_embedding = model(inputs, training=False)
         loss_0 = loss_object(labels, pred) * labels.shape[-1]  # convert mean back to sum
         for pred_ in aux_preds:
             loss_0 += loss_object(labels, pred_) * labels.shape[-1]
         loss_1 = regularization_loss
-        loss = loss_0 + loss_1
-        val_recorder.record(loss,loss_0, loss_1, labels, pred)
+        loss_2 = contrastive_loss(vision_embedding, bert_embedding) * 10.0
+        loss = loss_0 + loss_1 + loss_2
+        val_recorder.record(loss,loss_0, loss_2, labels, pred)
         return vids, mix_embedding
 
     # 6. training
