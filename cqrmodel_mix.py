@@ -140,7 +140,7 @@ class MultiModal_mix(Model):
         bert_embedding = self.bert_map(bert_embedding)
         frame_num = tf.reshape(inputs['num_frames'], [-1])
         # frt_mean
-        frt_mean = tf.reduce_mean(inputs['frames'], axis=1)
+        frt_mean = tf.concat([tf.reduce_mean(inputs['frames'], axis=1),bert_embedding], axis=1) 
         frt_mean = self.bn(frt_mean)
         mix_weights = self.mix_weights(frt_mean) # b,3
         mix_weights = tf.nn.softmax(mix_weights, axis=-1)

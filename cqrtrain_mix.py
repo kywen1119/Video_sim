@@ -7,7 +7,7 @@ from tensorflow import keras
 from cqrconfig import parser
 from data_helper import create_datasets
 from cqrmetrics import Recorder
-from cqrmodel_mix import MultiModal_mix2 as MultiModal
+from cqrmodel_mix import MultiModal_mix as MultiModal
 from util import test_spearmanr
 
 def contrastive_loss(projections_1, projections_2):
@@ -59,24 +59,36 @@ def train(args):
     def train_step(inputs):
         labels = inputs['labels']
         with tf.GradientTape() as tape:
-            predictions, _, vision_embedding, bert_embedding = model(inputs, training=True)
-            loss_0 = loss_object(labels, predictions) * labels.shape[-1]  # convert mean back to sum
-            loss_1 = contrastive_loss(vision_embedding, bert_embedding) * 10.0
+            # predictions, _, vision_embedding, bert_embedding = model(inputs, training=True)
+            # loss_0 = loss_object(labels, predictions) * labels.shape[-1]  # convert mean back to sum
+            # loss_1 = contrastive_loss(vision_embedding, bert_embedding) * 10.0
+            # loss = loss_0 + loss_1
+            pred, aux_preds, regularization_loss, mix_embedding = model(inputs, training=True)
+            loss_0 = loss_object(labels, pred) * labels.shape[-1]  # convert mean back to sum
+            for pred_ in aux_preds:
+                loss_0 += loss_object(labels, pred_) * labels.shape[-1]
+            loss_1 = regularization_loss
             loss = loss_0 + loss_1
         gradients = tape.gradient(loss, model.get_variables())
         model.optimize(gradients)
-        train_recorder.record(loss, loss_0, loss_1, labels, predictions)
+        train_recorder.record(loss, loss_0, loss_1, labels, pred)
 
     @tf.function
     def val_step(inputs):
         vids = inputs['vid']
         labels = inputs['labels']
-        predictions, embeddings, vision_embedding, bert_embedding = model(inputs, training=False)
-        loss_0 = loss_object(labels, predictions) * labels.shape[-1]  # convert mean back to sum
-        loss_1 = contrastive_loss(vision_embedding, bert_embedding) *10.0
+        # predictions, embeddings, vision_embedding, bert_embedding = model(inputs, training=False)
+        # loss_0 = loss_object(labels, predictions) * labels.shape[-1]  # convert mean back to sum
+        # loss_1 = contrastive_loss(vision_embedding, bert_embedding) *10.0
+        # loss = loss_0 + loss_1
+        pred, aux_preds, regularization_loss, mix_embedding = model(inputs, training=False)
+        loss_0 = loss_object(labels, pred) * labels.shape[-1]  # convert mean back to sum
+        for pred_ in aux_preds:
+            loss_0 += loss_object(labels, pred_) * labels.shape[-1]
+        loss_1 = regularization_loss
         loss = loss_0 + loss_1
-        val_recorder.record(loss,loss_0, loss_1, labels, predictions)
-        return vids, embeddings
+        val_recorder.record(loss,loss_0, loss_1, labels, pred)
+        return vids, mix_embedding
 
     # 6. training
     for epoch in range(args.start_epoch, args.epochs):
