@@ -7,7 +7,7 @@ import tensorflow as tf
 from config_pair import parser
 from data_helper_pair import create_datasets
 from metrics_pair import Recorder
-from model_pair_mix import MultiModal_mix2 as MultiModal
+from model_pair_mix import MultiModal_mix as MultiModal
 import numpy as np
 from scipy.stats import spearmanr
 from cqrtrain import contrastive_loss
@@ -46,7 +46,7 @@ def train(args):
         labels_1 = inputs['labels_1']
         labels_2 = inputs['labels_2']
         with tf.GradientTape() as tape:
-            final_embedding_1, final_embedding_2, predictions_1, predictions_2 = model(inputs, training=True)
+            final_embedding_1, final_embedding_2, predictions_1, predictions_2, aux_preds_1, aux_preds_2 = model(inputs, training=True)
             final_embedding_1 = tf.math.l2_normalize(final_embedding_1, axis=1)
             final_embedding_2 = tf.math.l2_normalize(final_embedding_2, axis=1)
             sim = tf.reduce_sum(final_embedding_1 * final_embedding_2, axis=1)
@@ -56,6 +56,8 @@ def train(args):
             labels = tf.concat([labels_1, labels_2], 0)
             loss_1 = loss_kl(label_sims, sim) 
             loss_tag = loss_object_tag(labels, predictions) * labels.shape[-1]  # convert mean back to sum
+            for aux_pred in (aux_preds_1 + aux_preds_2):
+                loss_tag += loss_object_tag(labels, aux_pred) * labels.shape[-1]
             loss = loss_0 + args.kl_weight*loss_1 + loss_tag
         gradients = tape.gradient(loss, model.get_variables())
         model.optimize(gradients)
@@ -68,7 +70,7 @@ def train(args):
         label_sims = inputs['sim']
         labels_1 = inputs['labels_1']
         labels_2 = inputs['labels_2']
-        final_embedding_1, final_embedding_2, predictions_1, predictions_2 = model(inputs, training=False)
+        final_embedding_1, final_embedding_2, predictions_1, predictions_2, aux_preds_1, aux_preds_2 = model(inputs, training=False)
         final_embedding_1 = tf.math.l2_normalize(final_embedding_1, axis=1)
         final_embedding_2 = tf.math.l2_normalize(final_embedding_2, axis=1)
         sim = tf.reduce_sum(final_embedding_1 * final_embedding_2, axis=1)
@@ -78,6 +80,8 @@ def train(args):
         labels = tf.concat([labels_1, labels_2], 0)
         loss_1 = loss_kl(label_sims, sim)
         loss_tag = loss_object_tag(labels, predictions) * labels.shape[-1]  # convert mean back to sum
+        for aux_pred in (aux_preds_1 + aux_preds_2):
+            loss_tag += loss_object_tag(labels, aux_pred) * labels.shape[-1]
         loss = loss_0 + args.kl_weight*loss_1 + loss_tag
         val_recorder.record(loss, loss_0, loss_1)
         return vids_1, sim, label_sims
