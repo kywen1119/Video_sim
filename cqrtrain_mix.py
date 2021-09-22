@@ -68,8 +68,10 @@ def train(args):
             for pred_ in aux_preds:
                 loss_0 += loss_object(labels, pred_) * labels.shape[-1]
             loss_1 = regularization_loss * 10
-            loss_2 = contrastive_loss(vision_embedding, bert_embedding) * 10.0
-            loss = loss_0 + loss_1 + loss_2
+            loss_2 = 0
+            for vision in vision_embedding:
+                loss_2 += contrastive_loss(vision, bert_embedding) * 10.0
+            loss = loss_0 + loss_1 + loss_2/3
         gradients = tape.gradient(loss, model.get_variables())
         model.optimize(gradients)
         train_recorder.record(loss, loss_0, loss_2, labels, pred)
@@ -87,7 +89,9 @@ def train(args):
         for pred_ in aux_preds:
             loss_0 += loss_object(labels, pred_) * labels.shape[-1]
         loss_1 = regularization_loss
-        loss_2 = contrastive_loss(vision_embedding, bert_embedding) * 10.0
+        loss_2 = 0
+        for vision in vision_embedding:
+            loss_2 += contrastive_loss(vision, bert_embedding) * 10.0
         loss = loss_0 + loss_1 + loss_2
         val_recorder.record(loss,loss_0, loss_2, labels, pred)
         return vids, mix_embedding
