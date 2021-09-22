@@ -309,14 +309,14 @@ class MultiModal_mix(Model):
         # 2
         vision_embedding_b_1 = self.nextvlad_2([inputs['frames_1'], frame_num_1])
         vision_embedding_b_1 = vision_embedding_b_1 * tf.cast(tf.expand_dims(frame_num_1, -1) > 0, tf.float32)
-        final_embedding_b_1 = self.fusion_1([vision_embedding_b_1, bert_embedding_1])
-        logits_b_1 = self.classifier_1(final_embedding_b_1)
+        final_embedding_b_1 = self.fusion_2([vision_embedding_b_1, bert_embedding_1])
+        logits_b_1 = self.classifier_2(final_embedding_b_1)
         predictions_b_1 = tf.nn.sigmoid(logits_b_1)
         # 3
         vision_embedding_c_1 = self.nextvlad_3([inputs['frames_1'], frame_num_1])
         vision_embedding_c_1 = vision_embedding_c_1 * tf.cast(tf.expand_dims(frame_num_1, -1) > 0, tf.float32)
-        final_embedding_c_1 = self.fusion_1([vision_embedding_c_1, bert_embedding_1])
-        logits_c_1 = self.classifier_1(final_embedding_c_1)
+        final_embedding_c_1 = self.fusion_3([vision_embedding_c_1, bert_embedding_1])
+        logits_c_1 = self.classifier_3(final_embedding_c_1)
         predictions_c_1 = tf.nn.sigmoid(logits_c_1)
         # mix frame feature
         # vision_embedding_1 = [vision_embedding_a_1, vision_embedding_b_1, vision_embedding_c_1]
@@ -345,10 +345,10 @@ class MultiModal_mix(Model):
         # 3 nextvlad -> weighted add
         frame_num_2 = tf.reshape(inputs['num_frames_2'], [-1])
         # 1
-        vision_embedding_a_2 = self.nextvlad_2([inputs['frames_2'], frame_num_2])
+        vision_embedding_a_2 = self.nextvlad_1([inputs['frames_2'], frame_num_2])
         vision_embedding_a_2 = vision_embedding_a_2 * tf.cast(tf.expand_dims(frame_num_2, -1) > 0, tf.float32)
-        final_embedding_a_2 = self.fusion_2([vision_embedding_a_2, bert_embedding_2])
-        logits_a_2 = self.classifier_2(final_embedding_a_2)
+        final_embedding_a_2 = self.fusion_1([vision_embedding_a_2, bert_embedding_2])
+        logits_a_2 = self.classifier_1(final_embedding_a_2)
         predictions_a_2 = tf.nn.sigmoid(logits_a_2)
         # 2
         vision_embedding_b_2 = self.nextvlad_2([inputs['frames_2'], frame_num_2])
@@ -359,8 +359,8 @@ class MultiModal_mix(Model):
         # 3
         vision_embedding_c_2 = self.nextvlad_3([inputs['frames_2'], frame_num_2])
         vision_embedding_c_2 = vision_embedding_c_2 * tf.cast(tf.expand_dims(frame_num_2, -1) > 0, tf.float32)
-        final_embedding_c_2 = self.fusion_2([vision_embedding_c_2, bert_embedding_2])
-        logits_c_2 = self.classifier_2(final_embedding_c_2)
+        final_embedding_c_2 = self.fusion_3([vision_embedding_c_2, bert_embedding_2])
+        logits_c_2 = self.classifier_3(final_embedding_c_2)
         predictions_c_2 = tf.nn.sigmoid(logits_c_2)
         # mix frame feature
         # vision_embedding_1 = [vision_embedding_a_1, vision_embedding_b_1, vision_embedding_c_1]
