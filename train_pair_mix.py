@@ -56,10 +56,10 @@ def train(args):
             labels = tf.concat([labels_1, labels_2], 0)
             loss_1 = loss_kl(label_sims, sim) 
             loss_tag = loss_object_tag(labels, predictions) * labels.shape[-1]  # convert mean back to sum
-            for i in range(3):
-                aux_pred = tf.concat([aux_preds_1[i], aux_preds_2[i]], 0)
-                loss_tag += loss_object_tag(labels, aux_pred) * labels.shape[-1]
-            loss = loss_0 + args.kl_weight*loss_1 + loss_tag
+            # for i in range(3):
+            #     aux_pred = tf.concat([aux_preds_1[i], aux_preds_2[i]], 0)
+            #     loss_tag += loss_object_tag(labels, aux_pred) * labels.shape[-1]
+            loss = loss_0 + args.kl_weight*loss_1 + loss_tag#/4 + regularization_loss * 10
         gradients = tape.gradient(loss, model.get_variables())
         model.optimize(gradients)
         train_recorder.record(loss, loss_0, loss_1)
@@ -81,10 +81,10 @@ def train(args):
         labels = tf.concat([labels_1, labels_2], 0)
         loss_1 = loss_kl(label_sims, sim)
         loss_tag = loss_object_tag(labels, predictions) * labels.shape[-1]  # convert mean back to sum
-        for i in range(3):
-            aux_pred = tf.concat([aux_preds_1[i], aux_preds_2[i]], 0)
-            loss_tag += loss_object_tag(labels, aux_pred) * labels.shape[-1]
-        loss = loss_0 + args.kl_weight*loss_1 + loss_tag
+        # for i in range(3):
+        #     aux_pred = tf.concat([aux_preds_1[i], aux_preds_2[i]], 0)
+        #     loss_tag += loss_object_tag(labels, aux_pred) * labels.shape[-1]
+        loss = loss_0 + args.kl_weight*loss_1 + loss_tag#/4 + regularization_loss * 10
         val_recorder.record(loss, loss_0, loss_1)
         return vids_1, sim, label_sims
     # import pdb;pdb.set_trace()
