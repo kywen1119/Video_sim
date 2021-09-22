@@ -332,6 +332,14 @@ class MultiModal_mix(Model):
         mix_logit_1 = tf.reduce_sum(tf.multiply(tf.expand_dims(mix_weights_1, -1), logits_1), axis=1)
         mix_embedding_1 = tf.reduce_sum(tf.multiply(tf.expand_dims(mix_weights_1, -1), embeddings_1), axis=1)
         pred_1 = tf.nn.sigmoid(mix_logit_1)
+        # kl loss
+        # rank_pred_1 = tf.expand_dims(tf.nn.softmax(mix_logit_1/self.cl_temperature, axis=-1), axis=1)
+        # aux_rank_preds_1 = tf.nn.softmax((logits_1/self.cl_temperature), axis=-1)
+        # epsilon = 1e-8
+        # kl_loss_1 = tf.reduce_sum(rank_pred_1 * (tf.math.log(rank_pred_1 + epsilon) - tf.math.log(aux_rank_preds_1 + epsilon)),
+        #                         axis=-1)
+
+        # regularization_loss_1 = self.cl_lambda * tf.reduce_mean(tf.reduce_sum(kl_loss_1, axis=-1), axis=-1)
 
 
         # pair 2
@@ -376,8 +384,16 @@ class MultiModal_mix(Model):
         mix_logit_2 = tf.reduce_sum(tf.multiply(tf.expand_dims(mix_weights_2, -1), logits_2), axis=1)
         mix_embedding_2 = tf.reduce_sum(tf.multiply(tf.expand_dims(mix_weights_2, -1), embeddings_2), axis=1)
         pred_2 = tf.nn.sigmoid(mix_logit_2)
+        # kl loss
+        # rank_pred_2 = tf.expand_dims(tf.nn.softmax(mix_logit_2/self.cl_temperature, axis=-1), axis=1)
+        # aux_rank_preds_2 = tf.nn.softmax((logits_2/self.cl_temperature), axis=-1)
+        # epsilon = 1e-8
+        # kl_loss_2 = tf.reduce_sum(rank_pred_2 * (tf.math.log(rank_pred_2 + epsilon) - tf.math.log(aux_rank_preds_2 + epsilon)),
+        #                         axis=-1)
 
-        return mix_embedding_1, mix_embedding_2, pred_1, pred_2, aux_preds_1, aux_preds_2
+        # regularization_loss_2 = self.cl_lambda * tf.reduce_mean(tf.reduce_sum(kl_loss_2, axis=-1), axis=-1)
+        # regularization_loss = (regularization_loss_2 + regularization_loss_1)/2
+        return mix_embedding_1, mix_embedding_2, pred_1, pred_2, aux_preds_1, aux_preds_2#, regularization_loss
 
     def get_variables(self):
         if not self.all_variables_1:  # is None, not initialized
