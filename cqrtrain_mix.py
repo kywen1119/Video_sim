@@ -10,7 +10,7 @@ from cqrmetrics import Recorder
 from cqrmodel_mix import MultiModal_mix as MultiModal
 from util import test_spearmanr
 
-def ASLoss(x,y):
+def ASLoss(y,x):
     y = tf.cast(y, tf.float32)
     gamma_neg = 4
     gamma_pos = 0
