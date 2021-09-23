@@ -5,14 +5,14 @@ import numpy as np
 import tensorflow as tf
 from sklearn.preprocessing import MultiLabelBinarizer
 from tensorflow.python.data.ops.dataset_ops import AUTOTUNE
-from transformers import RoformerTokenizer
+from transformers import RoFormerTokenizer
 from config import parser
 
 
 class FeatureParser:
     def __init__(self, args):
         self.args = args
-        self.tokenizer = RoformerTokenizer.from_pretrained(args.bert_dir)
+        self.tokenizer = RoFormerTokenizer.from_pretrained(args.bert_dir)
         self.max_bert_length = args.bert_seq_length
         self.max_frames = args.max_frames
 

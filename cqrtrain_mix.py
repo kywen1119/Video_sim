@@ -10,31 +10,50 @@ from cqrmetrics import Recorder
 from cqrmodel_mix import MultiModal_mix as MultiModal
 from util import test_spearmanr
 
+def ASLoss(x,y):
+    gamma_neg = 4
+    gamma_pos = 0
+    clip_0 = 0.05
+    eps = 1e-8
+    xs_pos = x
+    xs_neg = 1-x
+    los_pos = y*tf.math.log(tf.clip_by_value(xs_pos,eps,10000))
+    los_neg = (1-y)*tf.math.log(tf.clip_by_value(xs_neg,eps,10000))
+    loss = los_pos + los_neg
+    pt0 = xs_pos * y
+    pt1 = xs_neg*(1-y)
+    pt = pt0 + pt1
+    one_sided_gamma = gamma_pos * y + gamma_neg * (1-y)
+    one_sided_w = tf.math.pow(1-pt, one_sided_gamma)
+    loss *= one_sided_w
+    return -tf.reduce_sum(loss,-1)
+
 def contrastive_loss(projections_1, projections_2):
-        # InfoNCE loss (information noise-contrastive estimation)
-        # NT-Xent loss (normalized temperature-scaled cross entropy)
+    # InfoNCE loss (information noise-contrastive estimation)
+    # NT-Xent loss (normalized temperature-scaled cross entropy)
 
-        # Cosine similarity: the dot product of the l2-normalized feature vectors
-        temperature = 0.07
-        projections_1 = tf.math.l2_normalize(projections_1, axis=1)
-        projections_2 = tf.math.l2_normalize(projections_2, axis=1)
-        similarities = (
-            tf.matmul(projections_1, projections_2, transpose_b=True) / temperature
-        )
+    # Cosine similarity: the dot product of the l2-normalized feature vectors
+    temperature = 0.07
+    projections_1 = tf.math.l2_normalize(projections_1, axis=1)
+    projections_2 = tf.math.l2_normalize(projections_2, axis=1)
+    similarities = (
+        tf.matmul(projections_1, projections_2, transpose_b=True) / temperature
+    )
 
-        # The similarity between the representations of two augmented views of the
-        # same image should be higher than their similarity with other views
-        batch_size = tf.shape(projections_1)[0]
-        contrastive_labels = tf.range(batch_size)
-        # The temperature-scaled similarities are used as logits for cross-entropy
-        # a symmetrized version of the loss is used here
-        loss_1_2 = keras.losses.sparse_categorical_crossentropy(
-            contrastive_labels, similarities, from_logits=True
-        )
-        loss_2_1 =keras.losses.sparse_categorical_crossentropy(
-            contrastive_labels, tf.transpose(similarities), from_logits=True
-        )
-        return (loss_1_2 + loss_2_1) / 2
+    # The similarity between the representations of two augmented views of the
+    # same image should be higher than their similarity with other views
+    batch_size = tf.shape(projections_1)[0]
+    contrastive_labels = tf.range(batch_size)
+    # The temperature-scaled similarities are used as logits for cross-entropy
+    # a symmetrized version of the loss is used here
+    loss_1_2 = keras.losses.sparse_categorical_crossentropy(
+        contrastive_labels, similarities, from_logits=True
+    )
+    loss_2_1 =keras.losses.sparse_categorical_crossentropy(
+        contrastive_labels, tf.transpose(similarities), from_logits=True
+    )
+    return (loss_1_2 + loss_2_1) / 2
+
 
 
 def train(args):
@@ -51,7 +70,7 @@ def train(args):
     else:
         logging.info("Initializing from scratch.")
     # 4. create loss_object and recorders
-    loss_object = tf.keras.losses.BinaryCrossentropy(reduction=tf.keras.losses.Reduction.NONE)
+    loss_object = ASLoss #tf.keras.losses.BinaryCrossentropy(reduction=tf.keras.losses.Reduction.NONE)
     train_recorder, val_recorder = Recorder(), Recorder()
 
     # 5. define train and valid step function
@@ -64,9 +83,9 @@ def train(args):
             # loss_1 = contrastive_loss(vision_embedding, bert_embedding) * 10.0
             # loss = loss_0 + loss_1
             pred, aux_preds, regularization_loss, mix_embedding, vision_embedding, bert_embedding = model(inputs, training=True)
-            loss_0 = loss_object(labels, pred) * labels.shape[-1]  # convert mean back to sum
+            loss_0 = loss_object(labels, pred) #* labels.shape[-1]  # convert mean back to sum
             for pred_ in aux_preds:
-                loss_0 += loss_object(labels, pred_) * labels.shape[-1]
+                loss_0 += loss_object(labels, pred_) #* labels.shape[-1]
             loss_1 = regularization_loss * 10
             loss_2 = 0
             for vision in vision_embedding:
@@ -85,9 +104,9 @@ def train(args):
         # loss_1 = contrastive_loss(vision_embedding, bert_embedding) *10.0
         # loss = loss_0 + loss_1
         pred, aux_preds, regularization_loss, mix_embedding, vision_embedding, bert_embedding = model(inputs, training=False)
-        loss_0 = loss_object(labels, pred) * labels.shape[-1]  # convert mean back to sum
+        loss_0 = loss_object(labels, pred) #* labels.shape[-1]  # convert mean back to sum
         for pred_ in aux_preds:
-            loss_0 += loss_object(labels, pred_) * labels.shape[-1]
+            loss_0 += loss_object(labels, pred_) #* labels.shape[-1]
         loss_1 = regularization_loss
         loss_2 = 0
         for vision in vision_embedding:

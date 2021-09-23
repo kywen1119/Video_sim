@@ -136,7 +136,8 @@ class MultiModal_mix(Model):
         self.bert_variables, self.num_bert, self.normal_variables, self.all_variables = None, None, None, None
 
     def call(self, inputs, **kwargs):
-        bert_embedding = self.bert([inputs['input_ids'], inputs['mask']])[1]
+        bert_embedding = self.bert([inputs['input_ids'], inputs['mask']])[0]
+        bert_embedding = tf.reduce_max(bert_embedding, 1)
         bert_embedding = self.bert_map(bert_embedding)
         frame_num = tf.reshape(inputs['num_frames'], [-1])
         # frt_mean
