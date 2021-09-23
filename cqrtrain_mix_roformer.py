@@ -5,9 +5,9 @@ from pprint import pprint
 import tensorflow as tf
 from tensorflow import keras
 from cqrconfig import parser
-from data_helper import create_datasets
+from data_helper_roformer import create_datasets
 from cqrmetrics import Recorder
-from cqrmodel_mix import MultiModal_mix as MultiModal
+from cqrmodel_mix_roformer import MultiModal_mix as MultiModal
 from util import test_spearmanr
 
 def contrastive_loss(projections_1, projections_2):
@@ -92,7 +92,7 @@ def train(args):
         loss_2 = 0
         for vision in vision_embedding:
             loss_2 += contrastive_loss(vision, bert_embedding) * 10.0
-        loss = loss_0 + loss_1 + loss_2
+        loss = loss_0 + loss_1 + loss_2/3
         val_recorder.record(loss,loss_0, loss_2, labels, pred)
         return vids, mix_embedding
 
