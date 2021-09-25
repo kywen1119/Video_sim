@@ -12,7 +12,7 @@ from util import test_spearmanr
 
 def ASLoss(y,x):
     y = tf.cast(y, tf.float32)
-    gamma_neg = 4
+    gamma_neg = 1
     gamma_pos = 0
     clip_0 = 0.05
     eps = 1e-8
