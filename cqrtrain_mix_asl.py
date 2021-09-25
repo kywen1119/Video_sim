@@ -71,7 +71,7 @@ def train(args):
     else:
         logging.info("Initializing from scratch.")
     # 4. create loss_object and recorders
-    loss_object = tf.keras.losses.BinaryCrossentropy(reduction=tf.keras.losses.Reduction.NONE)
+    loss_object = ASLoss #tf.keras.losses.BinaryCrossentropy(reduction=tf.keras.losses.Reduction.NONE)
     train_recorder, val_recorder = Recorder(), Recorder()
 
     # 5. define train and valid step function
@@ -84,9 +84,9 @@ def train(args):
             # loss_1 = contrastive_loss(vision_embedding, bert_embedding) * 10.0
             # loss = loss_0 + loss_1
             pred, aux_preds, regularization_loss, mix_embedding, vision_embedding, bert_embedding = model(inputs, training=True)
-            loss_0 = loss_object(labels, pred) * labels.shape[-1]  # convert mean back to sum
+            loss_0 = loss_object(labels, pred) #* labels.shape[-1]  # convert mean back to sum
             for pred_ in aux_preds:
-                loss_0 += loss_object(labels, pred_) * labels.shape[-1]
+                loss_0 += loss_object(labels, pred_) #* labels.shape[-1]
             loss_1 = regularization_loss * 10
             loss_2 = 0
             for vision in vision_embedding:
@@ -105,9 +105,9 @@ def train(args):
         # loss_1 = contrastive_loss(vision_embedding, bert_embedding) *10.0
         # loss = loss_0 + loss_1
         pred, aux_preds, regularization_loss, mix_embedding, vision_embedding, bert_embedding = model(inputs, training=False)
-        loss_0 = loss_object(labels, pred) * labels.shape[-1]  # convert mean back to sum
+        loss_0 = loss_object(labels, pred) #* labels.shape[-1]  # convert mean back to sum
         for pred_ in aux_preds:
-            loss_0 += loss_object(labels, pred_) * labels.shape[-1]
+            loss_0 += loss_object(labels, pred_) #* labels.shape[-1]
         loss_1 = regularization_loss
         loss_2 = 0
         for vision in vision_embedding:
