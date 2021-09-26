@@ -10,7 +10,7 @@ from metrics_pair import Recorder
 from model_pair_mix import MultiModal_mix as MultiModal
 import numpy as np
 from scipy.stats import spearmanr
-from cqrtrain_mix import contrastive_loss, ASLoss
+from cqrtrain_mix_asl import contrastive_loss, ASLoss
 
 
 def MSE(sim, label):
