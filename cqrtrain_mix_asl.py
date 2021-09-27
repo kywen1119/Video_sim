@@ -7,7 +7,7 @@ from tensorflow import keras
 from cqrconfig import parser
 from data_helper import create_datasets
 from cqrmetrics import Recorder
-from cqrmodel_mix import MultiModal_mix as MultiModal
+from cqrmodel_mix import MultiModal_mix5 as MultiModal
 from util import test_spearmanr
 
 def ASLoss(y,x):
@@ -91,7 +91,7 @@ def train(args):
             loss_2 = 0
             for vision in vision_embedding:
                 loss_2 += contrastive_loss(vision, bert_embedding) * 10.0
-            loss = loss_0 + loss_1 + loss_2/3
+            loss = loss_0 + loss_1 + loss_2/len(aux_preds)
         gradients = tape.gradient(loss, model.get_variables())
         model.optimize(gradients)
         train_recorder.record(loss, loss_0, loss_2, labels, pred)
