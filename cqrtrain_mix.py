@@ -7,7 +7,7 @@ from tensorflow import keras
 from cqrconfig import parser
 from data_helper import create_datasets
 from cqrmetrics import Recorder
-from cqrmodel_mix import MultiModal_mix5 as MultiModal
+from cqrmodel_mix import MultiModal_mix as MultiModal
 from util import test_spearmanr
 
 def ASLoss(y,x):
