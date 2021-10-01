@@ -18,8 +18,8 @@ def ASLoss(y,x):
     eps = 1e-8
     xs_pos = x
     xs_neg = 1-x
-    los_pos = y*tf.math.log(tf.clip_by_value(xs_pos,eps,10000))
-    los_neg = (1-y)*tf.math.log(tf.clip_by_value(xs_neg,eps,10000))
+    los_pos = y*tf.math.log(tf.clip_by_value(xs_pos,eps,100))
+    los_neg = (1-y)*tf.math.log(tf.clip_by_value(xs_neg,eps,100))
     loss = los_pos + los_neg
     pt0 = xs_pos * y
     pt1 = xs_neg*(1-y)
