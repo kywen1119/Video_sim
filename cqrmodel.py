@@ -428,6 +428,8 @@ class Uniter(Model):
         self.num_labels = config.num_labels
         self.classifier = tf.keras.layers.Dense(self.num_labels, activation='sigmoid')
         self.frame_map = tf.keras.layers.Dense(768, activation ='relu')
+        self.fc = tf.keras.layers.Dense(config.hidden_size)
+        self.pooling = config.uniter_pooling
 
         self.bert_optimizer, self.bert_lr = create_optimizer(init_lr=config.bert_lr,
                                                              num_train_steps=config.bert_total_steps,
@@ -438,6 +440,23 @@ class Uniter(Model):
         self.bert_variables, self.num_bert, self.normal_variables, self.all_variables = None, None, None, None
 
     def call(self, inputs, training, **kwargs):
+        """ original
+        # image_embedding = inputs['frames']
+        # _, num_segments, _ = image_embedding.shape
+        # image_embedding = self.frame_map(image_embedding) # b,32,768
+        # frame_num = tf.reshape(inputs['num_frames'], [-1])
+        # images_mask = tf.sequence_mask(frame_num, maxlen=num_segments)
+        # images_mask = tf.cast(images_mask, tf.int32)
+        # # import pdb;pdb.set_trace()
+        # _, seq_len = inputs['input_ids'].shape
+        # bert_output = self.bert(input_ids=inputs['input_ids'], attention_mask=inputs['mask'], frame_features=image_embedding, frame_attention_mask=images_mask) # inputs have random mask
+        # sequence_output = bert_output[0]
+        # bert_embedding = bert_output[1]
+        # prediction_scores_mlm = self.mlm(sequence_output=sequence_output, training=training)[:,:seq_len]
+
+        # predictions = self.classifier(bert_embedding)
+        """
+
         image_embedding = inputs['frames']
         _, num_segments, _ = image_embedding.shape
         image_embedding = self.frame_map(image_embedding) # b,32,768
@@ -448,16 +467,18 @@ class Uniter(Model):
         _, seq_len = inputs['input_ids'].shape
         bert_output = self.bert(input_ids=inputs['input_ids'], attention_mask=inputs['mask'], frame_features=image_embedding, frame_attention_mask=images_mask) # inputs have random mask
         sequence_output = bert_output[0]
-        bert_embedding = bert_output[1]
+        sequence_output = self.fc(sequence_output)
+        if self.pooling == 'cls':
+            bert_embedding = sequence_output[:,0]
+        elif self.pooling == 'mean':
+            bert_embedding = tf.reduce_mean(sequence_output, 1)
+        elif self.pooling == 'max':
+            text_mask = 1-tf.cast(inputs['mask'], tf.int32)
+            neg_mask = tf.concat([text_mask, 1-images_mask], 1)
+            super_neg = tf.expand_dims(tf.cast(neg_mask, tf.float32), axis=2) * -1000
+            bert_embedding = tf.reduce_max(sequence_output + super_neg, 1)
         prediction_scores_mlm = self.mlm(sequence_output=sequence_output, training=training)[:,:seq_len]
-        # loss_mlm = (
-        #     None if inputs["mask_labels"] is None else self.compute_loss(labels=inputs["mask_labels"], logits=prediction_scores)
-        # )
-        
-        # frame_num = tf.reshape(inputs['num_frames'], [-1])
-        # vision_embedding = self.nextvlad([inputs['frames'], frame_num])
-        # vision_embedding = vision_embedding * tf.cast(tf.expand_dims(frame_num, -1) > 0, tf.float32)
-        # final_embedding = self.fusion([vision_embedding, bert_embedding])
+
         predictions = self.classifier(bert_embedding)
 
         return predictions, bert_embedding, prediction_scores_mlm
@@ -477,7 +498,7 @@ class Uniter(Model):
             self.bert_variables = self.bert.trainable_variables
             self.num_bert = len(self.bert_variables)
             self.normal_variables = self.classifier.trainable_variables + self.frame_map.trainable_variables + \
-                                    self.mlm.trainable_variables
+                                    self.mlm.trainable_variables + self.fc.trainable_variables
             self.all_variables = self.bert_variables + self.normal_variables
         return self.all_variables
 

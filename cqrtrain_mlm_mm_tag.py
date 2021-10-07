@@ -5,32 +5,10 @@ from pprint import pprint
 import tensorflow as tf
 from tensorflow import keras
 from cqrconfig import parser
-from data_helper import create_datasets
-from cqrmetrics import Recorder
-from cqrmodel_mix import MultiModal_mix5 as MultiModal
+from data_helper_mlm import create_datasets
+from cqrmetrics import Recorder_3
+from cqrmodel import Uniter as MultiModal
 from util import test_spearmanr
-
-def ASLoss(y,x):
-    y = tf.cast(y, tf.float32)
-    gamma_neg = 1
-    gamma_pos = 0
-    clip_0 = 0.05
-    eps = 1e-7
-    xs_pos = x
-    xs_neg = 1-x
-    # xs_neg = tf.clip_by_value(xs_neg + clip_0, eps, 1)
-    los_pos = y*tf.math.log(tf.clip_by_value(xs_pos,eps,1-eps))
-    los_neg = (1-y)*tf.math.log(tf.clip_by_value(xs_neg,eps,1-eps))
-    # los_pos = y*tf.math.log(tf.clip_by_value(xs_pos,eps,100))
-    loss = los_pos + los_neg
-    pt0 = xs_pos * y
-    pt1 = xs_neg*(1-y)
-    pt = pt0 + pt1
-    # one_sided_gamma = gamma_pos * y + gamma_neg * (1-y)
-    # one_sided_w = tf.math.pow(1-pt, one_sided_gamma)
-    one_sided_w = tf.math.pow(1-pt0-pt1, gamma_pos * y + gamma_neg * (1-y))
-    loss *= one_sided_w
-    return -tf.reduce_sum(loss,-1)
 
 def contrastive_loss(projections_1, projections_2):
     # InfoNCE loss (information noise-contrastive estimation)
@@ -59,6 +37,34 @@ def contrastive_loss(projections_1, projections_2):
     return (loss_1_2 + loss_2_1) / 2
 
 
+def shape_list(tensor):
+    """
+    Deal with dynamic shape in tensorflow cleanly.
+    Args:
+        tensor (:obj:`tf.Tensor`): The tensor we want the shape of.
+    Returns:
+        :obj:`List[int]`: The shape of the tensor as a list.
+    """
+    dynamic = tf.shape(tensor)
+
+    if tensor.shape == tf.TensorShape(None):
+        return dynamic
+
+    static = tensor.shape.as_list()
+
+    return [dynamic[i] if s is None else s for i, s in enumerate(static)]
+
+
+def compute_loss(labels, logits):
+    loss_fn = tf.keras.losses.SparseCategoricalCrossentropy(
+        from_logits=True, reduction=tf.keras.losses.Reduction.NONE
+    )
+    # make sure only labels that are not equal to -100 affect the loss
+    active_loss = tf.not_equal(tf.reshape(labels, (-1,)), -100)
+    reduced_logits = tf.boolean_mask(tf.reshape(logits, (-1, shape_list(logits)[2])), active_loss)
+    labels = tf.boolean_mask(tf.reshape(labels, (-1,)), active_loss)
+    return tf.reduce_mean(loss_fn(labels, reduced_logits))
+
 
 def train(args):
     # 1. create dataset and set num_labels to args
@@ -74,50 +80,34 @@ def train(args):
     else:
         logging.info("Initializing from scratch.")
     # 4. create loss_object and recorders
-    loss_object = ASLoss #tf.keras.losses.BinaryCrossentropy(reduction=tf.keras.losses.Reduction.NONE)
-    train_recorder, val_recorder = Recorder(), Recorder()
+    loss_object = tf.keras.losses.BinaryCrossentropy(reduction=tf.keras.losses.Reduction.NONE)
+    train_recorder, val_recorder = Recorder_3(), Recorder_3()
 
     # 5. define train and valid step function
     @tf.function
     def train_step(inputs):
         labels = inputs['labels']
         with tf.GradientTape() as tape:
-            # predictions, _, vision_embedding, bert_embedding = model(inputs, training=True)
-            # loss_0 = loss_object(labels, predictions) * labels.shape[-1]  # convert mean back to sum
-            # loss_1 = contrastive_loss(vision_embedding, bert_embedding) * 10.0
-            # loss = loss_0 + loss_1
-            pred, aux_preds, regularization_loss, mix_embedding, vision_embedding, bert_embedding = model(inputs, training=True)
-            loss_0 = loss_object(labels, pred) #* labels.shape[-1]  # convert mean back to sum
-            for pred_ in aux_preds:
-                loss_0 += loss_object(labels, pred_) #* labels.shape[-1]
-            loss_1 = regularization_loss * 10
-            loss_2 = 0
-            for vision in vision_embedding:
-                loss_2 += contrastive_loss(vision, bert_embedding) * 10.0
-            loss = loss_0 + loss_1 + loss_2/len(aux_preds)
+            predictions, bert_embedding, prediction_scores_mlm = model(inputs, training=True)
+            loss_0 = loss_object(labels, predictions) * labels.shape[-1]  # convert mean back to sum
+            loss_1 = 0 #contrastive_loss(vision_embedding, bert_embedding) * 10.0
+            loss_mlm = compute_loss(labels=inputs["mask_labels"], logits=prediction_scores_mlm) * 10.0
+            loss = loss_0 + loss_mlm
         gradients = tape.gradient(loss, model.get_variables())
         model.optimize(gradients)
-        train_recorder.record(loss, loss_0, loss_2, labels, pred)
+        train_recorder.record(loss, loss_0, loss_1, loss_mlm, labels, predictions)
 
     @tf.function
     def val_step(inputs):
         vids = inputs['vid']
         labels = inputs['labels']
-        # predictions, embeddings, vision_embedding, bert_embedding = model(inputs, training=False)
-        # loss_0 = loss_object(labels, predictions) * labels.shape[-1]  # convert mean back to sum
-        # loss_1 = contrastive_loss(vision_embedding, bert_embedding) *10.0
-        # loss = loss_0 + loss_1
-        pred, aux_preds, regularization_loss, mix_embedding, vision_embedding, bert_embedding = model(inputs, training=False)
-        loss_0 = loss_object(labels, pred) #* labels.shape[-1]  # convert mean back to sum
-        for pred_ in aux_preds:
-            loss_0 += loss_object(labels, pred_) #* labels.shape[-1]
-        loss_1 = regularization_loss
-        loss_2 = 0
-        for vision in vision_embedding:
-            loss_2 += contrastive_loss(vision, bert_embedding) * 10.0
-        loss = loss_0 + loss_1 + loss_2
-        val_recorder.record(loss,loss_0, loss_2, labels, pred)
-        return vids, mix_embedding
+        predictions, bert_embedding, prediction_scores_mlm = model(inputs, training=False)
+        loss_0 = loss_object(labels, predictions) * labels.shape[-1]  # convert mean back to sum
+        loss_1 = 0 # contrastive_loss(vision_embedding, bert_embedding) *10.0
+        loss_mlm = compute_loss(labels=inputs["mask_labels"], logits=prediction_scores_mlm) * 10.0
+        loss = loss_0 + loss_1 + loss_mlm
+        val_recorder.record(loss,loss_0, loss_1, loss_mlm, labels, predictions)
+        return vids, bert_embedding
 
     # 6. training
     for epoch in range(args.start_epoch, args.epochs):

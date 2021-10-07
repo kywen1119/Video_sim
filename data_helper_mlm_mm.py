@@ -6,7 +6,7 @@ import tensorflow as tf
 from sklearn.preprocessing import MultiLabelBinarizer
 from tensorflow.python.data.ops.dataset_ops import AUTOTUNE
 from transformers import BertTokenizer
-from config_pair import parser
+from config import parser
 
 
 class FeatureParser:
@@ -51,7 +51,7 @@ class FeatureParser:
 
         # The rest of the time (10% of the time) we keep the masked input tokens unchanged
         return inputs, labels
-        
+
     def _encode(self, title):
         mlm_probability = 0.15
         title = title.numpy().decode(encoding='utf-8')
@@ -73,6 +73,7 @@ class FeatureParser:
         input_ids, mask, mask_labels = tf.py_function(self._encode, [title], [tf.int32, tf.int32, tf.int32])
         input_ids.set_shape([self.max_bert_length])
         mask.set_shape([self.max_bert_length])
+        mask_labels.set_shape([self.max_bert_length])
         return input_ids, mask, mask_labels
 
     def _sample(self, frames):
@@ -110,36 +111,34 @@ class FeatureParser:
         labels.set_shape([self.num_labels])
         return labels
 
-    def parse(self, features):
-        input_ids_1, mask_1, mask_labels_1 = self._parse_title(features['title_1'])
-        input_ids_2, mask_2, mask_labels_2 = self._parse_title(features['title_2'])
-        frames_1, num_frames_1 = self._parse_frames(features['frame_feature_1'])
-        frames_2, num_frames_2 = self._parse_frames(features['frame_feature_2'])
-        labels_1 = self._parse_labels(features['tag_id_1'])
-        labels_2 = self._parse_labels(features['tag_id_2'])
+    def _parse_category(self, category_id):
+        category_id = str(category_id.numpy())
+        id_1 = int(category_id[1:3])
+        if id_1 > 37:
+            id_1 = id_1 - 2
+        id_2 = int(category_id[3:])
+        return id_1, id_2
 
-        return {'input_ids_1': input_ids_1, 'mask_1': mask_1, 'frames_1': frames_1, 'num_frames_1': num_frames_1,
-                'vid_1': features['id_1'], 'labels_1': labels_1, 'input_ids_2': input_ids_2, 'mask_2': mask_2, 
-                'frames_2': frames_2, 'num_frames_2': num_frames_2,'vid_2': features['id_2'], 'labels_2': labels_2,
-                'sim': features['sim'], 'mask_labels_1': mask_labels_1, 'mask_labels_2': mask_labels_2}
+    def parse(self, features):
+        input_ids, mask, mask_labels = self._parse_title(features['title'])
+        frames, num_frames = self._parse_frames(features['frame_feature'])
+        labels = self._parse_labels(features['tag_id'])
+        # category_id_1, category_id_2 = tf.py_function(self._parse_category, [features['category_id']], [tf.int8, tf.int8])
+        return {'input_ids': input_ids, 'mask': mask, 'frames': frames, 'num_frames': num_frames,
+                'vid': features['id'], 'labels': labels, 'mask_labels': mask_labels}#, 'category_id_1': category_id_1, 'category_id_2': category_id_2}
 
     def create_dataset(self, files, training, batch_size):
         if training:
             np.random.shuffle(files)
         dataset = tf.data.TFRecordDataset(files, num_parallel_reads=AUTOTUNE)
-        feature_map = {'id_1': tf.io.FixedLenFeature([], tf.string),
-                       'title_1': tf.io.FixedLenFeature([], tf.string),
-                       'frame_feature_1': tf.io.VarLenFeature(tf.string),
-                       'tag_id_1': tf.io.VarLenFeature(tf.int64),
-                       'id_2': tf.io.FixedLenFeature([], tf.string),
-                       'title_2': tf.io.FixedLenFeature([], tf.string),
-                       'frame_feature_2': tf.io.VarLenFeature(tf.string),
-                       'tag_id_2': tf.io.VarLenFeature(tf.int64),
-                       'sim': tf.io.FixedLenFeature([], tf.float32)
-                       }
+        feature_map = {'id': tf.io.FixedLenFeature([], tf.string),
+                       'title': tf.io.FixedLenFeature([], tf.string),
+                       'frame_feature': tf.io.VarLenFeature(tf.string),
+                       'tag_id': tf.io.VarLenFeature(tf.int64)}
+                    #    'category_id': tf.io.FixedLenFeature([], tf.int64)}
         dataset = dataset.map(lambda x: tf.io.parse_single_example(x, feature_map), num_parallel_calls=AUTOTUNE)
         if training:
-            dataset = dataset.shuffle(buffer_size=batch_size * 10)
+            dataset = dataset.shuffle(buffer_size=batch_size * 8)
         dataset = dataset.map(self.parse, num_parallel_calls=AUTOTUNE)
         dataset = dataset.batch(batch_size, drop_remainder=training)
         dataset = dataset.prefetch(buffer_size=AUTOTUNE)
@@ -149,7 +148,7 @@ class FeatureParser:
 def create_datasets(args):
     train_files = glob.glob(args.train_record_pattern)
     val_files = glob.glob(args.val_record_pattern)
-    print(train_files)
+
     parser = FeatureParser(args)
     train_dataset = parser.create_dataset(train_files, training=True, batch_size=args.batch_size)
     val_dataset = parser.create_dataset(val_files, training=False, batch_size=args.val_batch_size)
@@ -161,5 +160,5 @@ if __name__ == '__main__':
     args = parser.parse_args()
     train_dataset, val_dataset = create_datasets(args)
     for i in train_dataset:
-        print(i)
+        print(i['category_id_1'], i['category_id_2'])
         break

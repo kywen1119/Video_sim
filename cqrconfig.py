@@ -52,3 +52,4 @@ parser.add_argument('--bert-warmup-steps', type=int, default=2000)
 
 # ====================== Fusion Configs ===========================
 parser.add_argument('--hidden-size', type=int, default=256, help='NO MORE THAN 256')
+parser.add_argument('--uniter-pooling', type=str, default='cls', help='cls & mean & max')
