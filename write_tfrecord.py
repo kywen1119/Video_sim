@@ -53,13 +53,13 @@ for line in f:
     sim = float(sim)
     all_pair_data.append([id_1, id_2, sim])
 
-label_path_sup = 'data/pairwise/label_sup_sam.tsv'
-f = open(label_path_sup)
-all_pair_data_sup = []
-for line in f:
-    id_1, id_2, sim = line.strip().split('\t')
-    sim = float(sim)
-    all_pair_data_sup.append([id_1, id_2, sim])
+# label_path_sup = 'data/pairwise/label_sup_sam.tsv'
+# f = open(label_path_sup)
+# all_pair_data_sup = []
+# for line in f:
+#     id_1, id_2, sim = line.strip().split('\t')
+#     sim = float(sim)
+#     all_pair_data_sup.append([id_1, id_2, sim])
 
 # shuffle pair data and get the top 6000 for validation
 import random
@@ -68,47 +68,52 @@ random.seed(42)
 # print(all_pair_data[:10])
 random.shuffle(all_pair_data)
 # print(all_pair_data[:10])
-val_pair_data = all_pair_data[:6000]
-train_pair_data = all_pair_data[6000:] + all_pair_data_sup
-random.shuffle(train_pair_data)
+save_path = {0: '0-5999val', 1: '6000-11999val',2: '12000-17999val',3: '18000-23999val',4: '24000-29999val', 5: '30000-35999val',
+            6: '36000-41999val',7: '42000-47999val',8: '48000-53999val',9: '54000-59999val',10: '60000-65999val'}
 
-from tqdm import tqdm
+for i in range(11):
+    start, end = i*6000, (i+1)*6000
+    val_pair_data = all_pair_data[start:end]
+    train_pair_data = all_pair_data[:start]+all_pair_data[end:]
+    random.shuffle(train_pair_data)
 
-def write_tfrecord(pair_datas, split):
-    write_path = 'data/pairwise/0-5999val_sam/'+split+'.tfrecord' # 61899+41103
-    writer = tf.io.TFRecordWriter(write_path) 
-    for pair_data in tqdm(pair_datas): # [id_1, id_2, sim] [str, str, float]
-        id_1, id_2, sim = pair_data
-        tag_id_1 = datas[id_1]['tag_id']
-        category_id_1 = datas[id_1]['category_id']
-        frame_feature_1 = datas[id_1]['frame_feature'].tolist()
-        title_1 = datas[id_1]['title']
-        asr_text_1 = datas[id_1]['asr_text']
+    from tqdm import tqdm
 
-        tag_id_2 = datas[id_2]['tag_id']
-        category_id_2 = datas[id_2]['category_id']
-        frame_feature_2 = datas[id_2]['frame_feature'].tolist()
-        title_2 = datas[id_2]['title']
-        asr_text_2 = datas[id_2]['asr_text']
-        feature = {                             # 建立 tf.train.Feature 字典
-            'id_1': tf.train.Feature(bytes_list=tf.train.BytesList(value=[bytes(id_1.encode())])),  
-            'tag_id_1': tf.train.Feature(int64_list=tf.train.Int64List(value=list(tag_id_1))),
-            'frame_feature_1': tf.train.Feature(bytes_list=tf.train.BytesList(value=frame_feature_1)),
-            'category_id_1': tf.train.Feature(int64_list=tf.train.Int64List(value=[category_id_1])),   
-            'title_1': tf.train.Feature(bytes_list=tf.train.BytesList(value=[title_1])),
-            'asr_text_1': tf.train.Feature(bytes_list=tf.train.BytesList(value=[asr_text_1])),
-            'id_2': tf.train.Feature(bytes_list=tf.train.BytesList(value=[bytes(id_2.encode())])),  
-            'tag_id_2': tf.train.Feature(int64_list=tf.train.Int64List(value=list(tag_id_2))),
-            'frame_feature_2': tf.train.Feature(bytes_list=tf.train.BytesList(value=frame_feature_2)),
-            'category_id_2': tf.train.Feature(int64_list=tf.train.Int64List(value=[category_id_2])),   
-            'title_2': tf.train.Feature(bytes_list=tf.train.BytesList(value=[title_2])),
-            'asr_text_2': tf.train.Feature(bytes_list=tf.train.BytesList(value=[asr_text_2])),
-            'sim': tf.train.Feature(float_list=tf.train.FloatList(value=[sim])) 
-        }
-        example = tf.train.Example(features=tf.train.Features(feature=feature))
-        writer.write(example.SerializeToString()) 
-    writer.close()
+    def write_tfrecord(pair_datas, split):
+        write_path = 'data/pairwise/'+save_path[i]+'/'+split+'.tfrecord' # 61899
+        writer = tf.io.TFRecordWriter(write_path) 
+        for pair_data in tqdm(pair_datas): # [id_1, id_2, sim] [str, str, float]
+            id_1, id_2, sim = pair_data
+            tag_id_1 = datas[id_1]['tag_id']
+            category_id_1 = datas[id_1]['category_id']
+            frame_feature_1 = datas[id_1]['frame_feature'].tolist()
+            title_1 = datas[id_1]['title']
+            asr_text_1 = datas[id_1]['asr_text']
+
+            tag_id_2 = datas[id_2]['tag_id']
+            category_id_2 = datas[id_2]['category_id']
+            frame_feature_2 = datas[id_2]['frame_feature'].tolist()
+            title_2 = datas[id_2]['title']
+            asr_text_2 = datas[id_2]['asr_text']
+            feature = {                             # 建立 tf.train.Feature 字典
+                'id_1': tf.train.Feature(bytes_list=tf.train.BytesList(value=[bytes(id_1.encode())])),  
+                'tag_id_1': tf.train.Feature(int64_list=tf.train.Int64List(value=list(tag_id_1))),
+                'frame_feature_1': tf.train.Feature(bytes_list=tf.train.BytesList(value=frame_feature_1)),
+                'category_id_1': tf.train.Feature(int64_list=tf.train.Int64List(value=[category_id_1])),   
+                'title_1': tf.train.Feature(bytes_list=tf.train.BytesList(value=[title_1])),
+                'asr_text_1': tf.train.Feature(bytes_list=tf.train.BytesList(value=[asr_text_1])),
+                'id_2': tf.train.Feature(bytes_list=tf.train.BytesList(value=[bytes(id_2.encode())])),  
+                'tag_id_2': tf.train.Feature(int64_list=tf.train.Int64List(value=list(tag_id_2))),
+                'frame_feature_2': tf.train.Feature(bytes_list=tf.train.BytesList(value=frame_feature_2)),
+                'category_id_2': tf.train.Feature(int64_list=tf.train.Int64List(value=[category_id_2])),   
+                'title_2': tf.train.Feature(bytes_list=tf.train.BytesList(value=[title_2])),
+                'asr_text_2': tf.train.Feature(bytes_list=tf.train.BytesList(value=[asr_text_2])),
+                'sim': tf.train.Feature(float_list=tf.train.FloatList(value=[sim])) 
+            }
+            example = tf.train.Example(features=tf.train.Features(feature=feature))
+            writer.write(example.SerializeToString()) 
+        writer.close()
 
 
-write_tfrecord(val_pair_data, 'val')
-write_tfrecord(train_pair_data, 'train')
+    write_tfrecord(val_pair_data, 'val')
+    write_tfrecord(train_pair_data, 'train')
