@@ -8,44 +8,44 @@
  <table>
         <tr>
             <th>Model</th>
-            <th>test_a</th>
-            <th>test_b</th>
+            <th>test</th>
+            <th>10fold</th>
             <th>weight</th>
         </tr>
         <tr>
             <th>MixNextvlad</th>
+            <th>81.2</th>
             <th>81.6</th>
-            <th>x</th>
             <th>0.17</th>
         </tr>
         <tr>
             <th>MixNextvlad_ASL</th>
+            <th>80.9</th>
             <th>81.8</th>
-            <th>x</th>
             <th>0.2</th>
         </tr>
         <tr>
             <th>MixNextvlad_roformer</th>
+            <th>80.5</th>
             <th>81.3</th>
-            <th>x</th>
             <th>0.13</th>
         </tr>
         <tr>
             <th>Uniter</th>
+            <th>80.2</th>
             <th>81.4</th>
-            <th>x</th>
             <th>0.13</th>
         </tr>
         <tr>
             <th>Uniter_ASL</th>
-            <th>81.6</th>
+            <th>80.5</th>
             <th>x</th>
             <th>0.2</th>
         </tr>
         <tr>
             <th>Uniter_roformer</th>
-            <th>81.6</th>
-            <th>x</th>
+            <th>80.1</th>
+            <th>81.8</th>
             <th>0.17</th>
         </tr>
     </table>
