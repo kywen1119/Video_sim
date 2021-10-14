@@ -44,7 +44,7 @@ parser.add_argument('--vlad-hidden-size', type=int, default=1024, help='nextvlad
 parser.add_argument('--se-ratio', type=int, default=8, help='reduction factor in se context gating')
 
 # ========================== Title BERT =============================
-parser.add_argument('--bert-dir', type=str, default='data/chinese-roberta-wwm-ext')
+parser.add_argument('--bert-dir', type=str, default='hfl/chinese-roberta-wwm-ext')
 parser.add_argument('--bert-seq-length', type=int, default=32)
 parser.add_argument('--bert-lr', type=float, default=3e-5)
 parser.add_argument('--bert-total-steps', type=int, default=40000)
