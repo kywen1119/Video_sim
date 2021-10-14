@@ -55,9 +55,11 @@
 
 ##### 2.1 MixNextvlad
 如图，论文中也有详细介绍，不再赘述。
+<img src="./img/mixnextvlad.jpg" width = "100%" height="50%">
 
 ##### 2.2 Uniter
 如图，视频的帧feature和句子的单词embedding经过concat之后送入bert-encoder，输出的features取平均得到最后的embedding。使用该模型时预训练任务增加了MLM（masked language modeling），只对文本进行mask，然后通过上下文的文本和图像特征共同进行MLM。
+<img src="./img/uniter.jpg" width = "100%" height="50%">
 
 ##### 2.2 ASL
 这是阿里巴巴最新提出的一种用于多标签分类的Loss [3]，可以有效解决多标签分类长尾样本的噪声问题。用它来替换baseline中的多标签分类的BCE损失，可以使得收敛更快，最终F1 score也更高。
