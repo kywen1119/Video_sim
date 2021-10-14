@@ -14,28 +14,28 @@
 | Uniter_roformer  | 单元格 |
  <table>
         <tr>
-            <th>设备</th>
-            <th>设备文件名</th>
-            <th>文件描述符</th>
-            <th>类型</th>
+            <th>Model</th>
+            <th>test_a</th>
+            <th>test_b</th>
+            <th>weight</th>
         </tr>
         <tr>
-            <th>键盘</th>
-            <th>/dev/stdin</th>
-            <th>0</th>
-            <th>标准输入</th>
+            <th>MixNextvlad</th>
+            <th>x</th>
+            <th>x</th>
+            <th>x</th>
         </tr>
         <tr>
-            <th>显示器</th>
-            <th>/dev/stdout</th>
-            <th>1</th>
-            <th>标准输出</th>
+            <th>MixNextvlad_ASL</th>
+            <th>x</th>
+            <th>x</th>
+            <th>x</th>
         </tr>
         <tr>
-            <th>显示器</th>
-            <th>/dev/stderr</th>
-            <th>2</th>
-            <th>标准错误输出</th>
+            <th>MixNextvlad_roformer</th>
+            <th>x</th>
+            <th>x</th>
+            <th>x</th>
         </tr>
     </table>
 
