@@ -157,9 +157,7 @@ sh infer_all.sh
 python ensemble_final.py
 ```
 
-#### 5. 一些无用的尝试
-
-#### 6. References
+#### 5. References
 [1] Lin R, Xiao J, Fan J. Nextvlad: An efficient neural network to aggregate frame-level features for large-scale video classification[C]//Proceedings of the European Conference on Computer Vision (ECCV) Workshops. 2018: 0-0.
 
 [2] Chen Y C, Li L, Yu L, et al. Uniter: Universal image-text representation learning[C]//European conference on computer vision. Springer, Cham, 2020: 104-120.
