@@ -37,6 +37,24 @@
             <th>x</th>
             <th>x</th>
         </tr>
+        <tr>
+            <th>Uniter</th>
+            <th>x</th>
+            <th>x</th>
+            <th>x</th>
+        </tr>
+        <tr>
+            <th>Uniter_asl</th>
+            <th>x</th>
+            <th>x</th>
+            <th>x</th>
+        </tr>
+        <tr>
+            <th>Uniter_roformer</th>
+            <th>x</th>
+            <th>x</th>
+            <th>x</th>
+        </tr>
     </table>
 
 #### 2. 模型介绍
