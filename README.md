@@ -73,7 +73,6 @@
 ##### 针对预训练
 1. 替换原来的bert model，baseline中的是bert-uncased-chinese，更换成更好的chinese-roberta-wwm-ext；或者更换为roformer_chinese_base。
 2. 对于MixNextvlad 模型，在文本特征和图像特征进行fusion前增加一个对比损失函数（contrastive loss），我们认为这样能平衡二者的量纲，能促进fusion的效果，在pretrain时能有效提升spearman 3个百分点。
-3. 
 
 ##### 针对finetune
 1. 使用11-fold-cross-validation：将pairwise的数据分成11份，每次用一份进行验证，这样同一个模型可以训11个模型，最终embedding取平均。
@@ -83,6 +82,8 @@
 #### 4. 如何复现？
 所有实验在一块3090上完成。
 环境： 
+
+python==3.8.0
 
 tensorflow==2.5.0    
 
