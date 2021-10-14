@@ -7,7 +7,7 @@ from tensorflow import keras
 from cqrconfig import parser
 from data_helper import create_datasets
 from cqrmetrics import Recorder
-from cqrmodel_mix import MultiModal_mix as MultiModal
+from cqrmodel_mix_addtf import MultiModal_mix_addtf as MultiModal
 from util import test_spearmanr
 
 def ASLoss(y,x):
@@ -15,20 +15,17 @@ def ASLoss(y,x):
     gamma_neg = 1
     gamma_pos = 0
     clip_0 = 0.05
-    eps = 1e-7
+    eps = 1e-8
     xs_pos = x
     xs_neg = 1-x
-    # xs_neg = tf.clip_by_value(xs_neg + clip_0, eps, 1)
-    los_pos = y*tf.math.log(tf.clip_by_value(xs_pos,eps,1-eps))
-    los_neg = (1-y)*tf.math.log(tf.clip_by_value(xs_neg,eps,1-eps))
-    # los_pos = y*tf.math.log(tf.clip_by_value(xs_pos,eps,100))
+    los_pos = y*tf.math.log(tf.clip_by_value(xs_pos,eps,10000))
+    los_neg = (1-y)*tf.math.log(tf.clip_by_value(xs_neg,eps,10000))
     loss = los_pos + los_neg
     pt0 = xs_pos * y
     pt1 = xs_neg*(1-y)
     pt = pt0 + pt1
-    # one_sided_gamma = gamma_pos * y + gamma_neg * (1-y)
-    # one_sided_w = tf.math.pow(1-pt, one_sided_gamma)
-    one_sided_w = tf.math.pow(1-pt0-pt1, gamma_pos * y + gamma_neg * (1-y))
+    one_sided_gamma = gamma_pos * y + gamma_neg * (1-y)
+    one_sided_w = tf.math.pow(1-pt, one_sided_gamma)
     loss *= one_sided_w
     return -tf.reduce_sum(loss,-1)
 
@@ -74,7 +71,7 @@ def train(args):
     else:
         logging.info("Initializing from scratch.")
     # 4. create loss_object and recorders
-    loss_object = ASLoss #tf.keras.losses.BinaryCrossentropy(reduction=tf.keras.losses.Reduction.NONE)
+    loss_object = tf.keras.losses.BinaryCrossentropy(reduction=tf.keras.losses.Reduction.NONE)
     train_recorder, val_recorder = Recorder(), Recorder()
 
     # 5. define train and valid step function
@@ -87,9 +84,9 @@ def train(args):
             # loss_1 = contrastive_loss(vision_embedding, bert_embedding) * 10.0
             # loss = loss_0 + loss_1
             pred, aux_preds, regularization_loss, mix_embedding, vision_embedding, bert_embedding = model(inputs, training=True)
-            loss_0 = loss_object(labels, pred) #* labels.shape[-1]  # convert mean back to sum
+            loss_0 = loss_object(labels, pred) * labels.shape[-1]  # convert mean back to sum
             for pred_ in aux_preds:
-                loss_0 += loss_object(labels, pred_) #* labels.shape[-1]
+                loss_0 += loss_object(labels, pred_) * labels.shape[-1]
             loss_1 = regularization_loss * 10
             loss_2 = 0
             for vision in vision_embedding:
@@ -108,9 +105,9 @@ def train(args):
         # loss_1 = contrastive_loss(vision_embedding, bert_embedding) *10.0
         # loss = loss_0 + loss_1
         pred, aux_preds, regularization_loss, mix_embedding, vision_embedding, bert_embedding = model(inputs, training=False)
-        loss_0 = loss_object(labels, pred) #* labels.shape[-1]  # convert mean back to sum
+        loss_0 = loss_object(labels, pred) * labels.shape[-1]  # convert mean back to sum
         for pred_ in aux_preds:
-            loss_0 += loss_object(labels, pred_) #* labels.shape[-1]
+            loss_0 += loss_object(labels, pred_) * labels.shape[-1]
         loss_1 = regularization_loss
         loss_2 = 0
         for vision in vision_embedding:

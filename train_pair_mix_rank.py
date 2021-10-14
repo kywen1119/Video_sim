@@ -6,17 +6,33 @@ import tensorflow as tf
 
 from config_pair import parser
 from data_helper_pair import create_datasets
-from metrics_pair import Recorder
+from metrics_pair import Recorder, Recorder_3
+# from model_pair_mix_rank import MultiModal_mix_rank as MultiModal
 from model_pair_mix import MultiModal_mix as MultiModal
 import numpy as np
 from scipy.stats import spearmanr
 from cqrtrain import contrastive_loss
+from fast_soft_sort.tf_ops import soft_rank, soft_sort
 
 
 def MSE(sim, label):
     return tf.reduce_sum(tf.square(sim - label))
 def KL(sim, label):
     return tf.keras.losses.KLDivergence()(label, sim)
+
+# @tf.function
+def spearmanr_loss(pred, target):
+    pred = tf.expand_dims(pred, axis=0)
+    target = tf.expand_dims(target, axis=0)
+    pred = soft_rank(pred)
+    target = soft_rank(target)
+    pred = tf.math.l2_normalize(pred-tf.reduce_mean(pred))
+    target = tf.math.l2_normalize(target-tf.reduce_mean(target))
+    # pred = pred - pred.mean()
+    # pred = pred / pred.norm()
+    # target = target - target.mean()
+    # target = target / target.norm()
+    return tf.reduce_sum(pred * target)
 
 def train(args):
     # 1. create dataset and set num_labels to args
@@ -34,37 +50,40 @@ def train(args):
     else:
         logging.info("Initializing from scratch.")
     # 4. create loss_object and recorders
-    loss_object = MSE
+    loss_object = spearmanr_loss
+    loss_object_2 = MSE
     loss_kl = tf.keras.losses.KLDivergence()
     loss_object_tag = tf.keras.losses.BinaryCrossentropy(reduction=tf.keras.losses.Reduction.NONE)
-    train_recorder, val_recorder = Recorder(), Recorder()
+    train_recorder, val_recorder = Recorder_3(), Recorder_3()
 
     # 5. define train and valid step_1 function
-    @tf.function
+    # @tf.function
     def train_step_1(inputs):
         label_sims = inputs['sim']
         labels_1 = inputs['labels_1']
         labels_2 = inputs['labels_2']
         with tf.GradientTape() as tape:
             final_embedding_1, final_embedding_2, predictions_1, predictions_2, aux_preds_1, aux_preds_2 = model(inputs, training=True)
+            # final_embedding_1, final_embedding_2 = model(inputs, training=True)
             final_embedding_1 = tf.math.l2_normalize(final_embedding_1, axis=1)
             final_embedding_2 = tf.math.l2_normalize(final_embedding_2, axis=1)
             sim = tf.reduce_sum(final_embedding_1 * final_embedding_2, axis=1)
-            loss_0 = loss_object(sim, label_sims)
+            loss_0 = (1-loss_object(sim, label_sims)) * 10
+            loss_mse = loss_object_2(sim, label_sims)
             #loss_1 = contrastive_loss(vision_embedding, bert_embedding) * 5.0
             predictions = tf.concat([predictions_1, predictions_2], 0)
             labels = tf.concat([labels_1, labels_2], 0)
             loss_1 = loss_kl(label_sims, sim) 
             loss_tag = loss_object_tag(labels, predictions) * labels.shape[-1]  # convert mean back to sum
-            # for i in range(3):
+            # for i in range(3):0#0#
             #     aux_pred = tf.concat([aux_preds_1[i], aux_preds_2[i]], 0)
             #     loss_tag += loss_object_tag(labels, aux_pred) * labels.shape[-1]
-            loss = loss_0 + args.kl_weight*loss_1 + loss_tag#/4 + regularization_loss * 10
+            loss = loss_0 + args.kl_weight*loss_1 + loss_tag + loss_mse#/4 + regularization_loss * 10
         gradients = tape.gradient(loss, model.get_variables())
         model.optimize(gradients)
-        train_recorder.record(loss, loss_0, loss_1)
+        train_recorder.record(loss, loss_0, loss_1, loss_mse)
 
-    @tf.function
+    # @tf.function
     def val_step_1(inputs):
         vids_1 = inputs['vid_1']
         vids_2 = inputs['vid_2']
@@ -72,10 +91,12 @@ def train(args):
         labels_1 = inputs['labels_1']
         labels_2 = inputs['labels_2']
         final_embedding_1, final_embedding_2, predictions_1, predictions_2, aux_preds_1, aux_preds_2 = model(inputs, training=False)
+        # final_embedding_1, final_embedding_2 = model(inputs, training=False)
         final_embedding_1 = tf.math.l2_normalize(final_embedding_1, axis=1)
         final_embedding_2 = tf.math.l2_normalize(final_embedding_2, axis=1)
         sim = tf.reduce_sum(final_embedding_1 * final_embedding_2, axis=1)
-        loss_0 = loss_object(sim, label_sims)
+        loss_0 = (1-loss_object(sim, label_sims)) * 10
+        loss_mse = loss_object_2(sim, label_sims)
         #loss_1 = contrastive_loss(vision_embedding, bert_embedding) * 10.0
         predictions = tf.concat([predictions_1, predictions_2], 0)
         labels = tf.concat([labels_1, labels_2], 0)
@@ -84,8 +105,8 @@ def train(args):
         # for i in range(3):
         #     aux_pred = tf.concat([aux_preds_1[i], aux_preds_2[i]], 0)
         #     loss_tag += loss_object_tag(labels, aux_pred) * labels.shape[-1]
-        loss = loss_0 + args.kl_weight*loss_1 + loss_tag#/4 + regularization_loss * 10
-        val_recorder.record(loss, loss_0, loss_1)
+        loss = loss_0 + args.kl_weight*loss_1 + loss_tag + loss_mse#/4 + regularization_loss * 10
+        val_recorder.record(loss, loss_0, loss_1, loss_mse)
         return vids_1, sim, label_sims
     # import pdb;pdb.set_trace()
     # 6. training
@@ -159,6 +180,8 @@ def train(args):
 
 
 def main():
+
+    print(tf.executing_eagerly())
     logging.basicConfig(level=logging.DEBUG,
                         format='%(asctime)s %(levelname)s %(message)s',
                         datefmt='%Y-%m-%d %H:%M:%S')

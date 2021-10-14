@@ -5,12 +5,12 @@ from pprint import pprint
 import tensorflow as tf
 
 from config_pair import parser
-from data_helper_pair import create_datasets
+from data_helper_pair_roformer import create_datasets
 from metrics_pair import Recorder
-from model_pair_mix import MultiModal_mix as MultiModal
+from model_pair_mix_roformer import MultiModal_mix as MultiModal
 import numpy as np
 from scipy.stats import spearmanr
-from cqrtrain import contrastive_loss
+from cqrtrain_mix_asl import contrastive_loss, ASLoss
 
 
 def MSE(sim, label):
@@ -36,7 +36,7 @@ def train(args):
     # 4. create loss_object and recorders
     loss_object = MSE
     loss_kl = tf.keras.losses.KLDivergence()
-    loss_object_tag = tf.keras.losses.BinaryCrossentropy(reduction=tf.keras.losses.Reduction.NONE)
+    loss_object_tag = ASLoss#tf.keras.losses.BinaryCrossentropy(reduction=tf.keras.losses.Reduction.NONE)
     train_recorder, val_recorder = Recorder(), Recorder()
 
     # 5. define train and valid step_1 function
@@ -55,7 +55,7 @@ def train(args):
             predictions = tf.concat([predictions_1, predictions_2], 0)
             labels = tf.concat([labels_1, labels_2], 0)
             loss_1 = loss_kl(label_sims, sim) 
-            loss_tag = loss_object_tag(labels, predictions) * labels.shape[-1]  # convert mean back to sum
+            loss_tag = loss_object_tag(labels, predictions) #* labels.shape[-1]  # convert mean back to sum
             # for i in range(3):
             #     aux_pred = tf.concat([aux_preds_1[i], aux_preds_2[i]], 0)
             #     loss_tag += loss_object_tag(labels, aux_pred) * labels.shape[-1]
@@ -80,7 +80,7 @@ def train(args):
         predictions = tf.concat([predictions_1, predictions_2], 0)
         labels = tf.concat([labels_1, labels_2], 0)
         loss_1 = loss_kl(label_sims, sim)
-        loss_tag = loss_object_tag(labels, predictions) * labels.shape[-1]  # convert mean back to sum
+        loss_tag = loss_object_tag(labels, predictions) #* labels.shape[-1]  # convert mean back to sum
         # for i in range(3):
         #     aux_pred = tf.concat([aux_preds_1[i], aux_preds_2[i]], 0)
         #     loss_tag += loss_object_tag(labels, aux_pred) * labels.shape[-1]

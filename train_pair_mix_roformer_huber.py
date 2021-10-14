@@ -5,9 +5,9 @@ from pprint import pprint
 import tensorflow as tf
 
 from config_pair import parser
-from data_helper_pair import create_datasets
+from data_helper_pair_roformer import create_datasets
 from metrics_pair import Recorder
-from model_pair_mix import MultiModal_mix as MultiModal
+from model_pair_mix_roformer import MultiModal_mix as MultiModal
 import numpy as np
 from scipy.stats import spearmanr
 from cqrtrain import contrastive_loss
@@ -15,6 +15,14 @@ from cqrtrain import contrastive_loss
 
 def MSE(sim, label):
     return tf.reduce_sum(tf.square(sim - label))
+
+def Huber(sim, label, delta=1.0):
+    error = sim - label
+    abs_error = tf.abs(error)
+    half = tf.convert_to_tensor(0.5, dtype=abs_error.dtype)
+    loss = tf.where(abs_error <= delta, half * tf.square(error),delta * abs_error - half * tf.square(delta))
+    return tf.reduce_sum(loss, axis=-1)
+
 def KL(sim, label):
     return tf.keras.losses.KLDivergence()(label, sim)
 
@@ -34,7 +42,7 @@ def train(args):
     else:
         logging.info("Initializing from scratch.")
     # 4. create loss_object and recorders
-    loss_object = MSE
+    loss_object = Huber #tf.keras.losses.Huber(0.2, reduction=tf.keras.losses.Reduction.SUM)
     loss_kl = tf.keras.losses.KLDivergence()
     loss_object_tag = tf.keras.losses.BinaryCrossentropy(reduction=tf.keras.losses.Reduction.NONE)
     train_recorder, val_recorder = Recorder(), Recorder()
@@ -50,7 +58,8 @@ def train(args):
             final_embedding_1 = tf.math.l2_normalize(final_embedding_1, axis=1)
             final_embedding_2 = tf.math.l2_normalize(final_embedding_2, axis=1)
             sim = tf.reduce_sum(final_embedding_1 * final_embedding_2, axis=1)
-            loss_0 = loss_object(sim, label_sims)
+            tf.print(sim)
+            loss_0 = loss_object(sim,label_sims, 1.0)
             #loss_1 = contrastive_loss(vision_embedding, bert_embedding) * 5.0
             predictions = tf.concat([predictions_1, predictions_2], 0)
             labels = tf.concat([labels_1, labels_2], 0)
@@ -75,7 +84,7 @@ def train(args):
         final_embedding_1 = tf.math.l2_normalize(final_embedding_1, axis=1)
         final_embedding_2 = tf.math.l2_normalize(final_embedding_2, axis=1)
         sim = tf.reduce_sum(final_embedding_1 * final_embedding_2, axis=1)
-        loss_0 = loss_object(sim, label_sims)
+        loss_0 = loss_object(sim,label_sims, 0.2)
         #loss_1 = contrastive_loss(vision_embedding, bert_embedding) * 10.0
         predictions = tf.concat([predictions_1, predictions_2], 0)
         labels = tf.concat([labels_1, labels_2], 0)

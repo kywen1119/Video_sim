@@ -5,8 +5,8 @@ import numpy as np
 import tensorflow as tf
 
 from config_pair import parser
-from data_helper import FeatureParser
-from cqrmodel_mix import MultiModal_mix as MultiModal
+from data_helper_roformer import FeatureParser
+from cqrmodel import Uniter_roformer as MultiModal
 
 
 def main():
@@ -21,7 +21,7 @@ def main():
 
     vid_embedding = {}
     for batch in dataset:
-        _, _, _, embeddings, _, _ = model(batch, training=False)
+        _, embeddings, _ = model(batch, training=False)
         vids = batch['vid'].numpy().astype(str)
         embeddings = embeddings.numpy().astype(np.float16)
         for vid, embedding in zip(vids, embeddings):

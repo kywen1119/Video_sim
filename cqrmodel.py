@@ -3,6 +3,7 @@ from tensorflow.python.keras.models import Model
 from transformers import TFBertModel, create_optimizer
 from transformers.models.bert.modeling_tf_bert import TFBertMLMHead
 from bert import TFBertModel_MM, shape_list
+from roformer import TFRoFormerModel_MM, TFRoFormerMLMHead
 # from layers.transformer_layer import TransformerEncoder
 
 
@@ -483,6 +484,189 @@ class Uniter(Model):
 
         return predictions, bert_embedding, prediction_scores_mlm
 
+    def compute_loss(self, labels, logits):
+        loss_fn = tf.keras.losses.SparseCategoricalCrossentropy(
+            from_logits=True, reduction=tf.keras.losses.Reduction.NONE
+        )
+        # make sure only labels that are not equal to -100 affect the loss
+        active_loss = tf.not_equal(tf.reshape(labels, (-1,)), -100)
+        reduced_logits = tf.boolean_mask(tf.reshape(logits, (-1, shape_list(logits)[2])), active_loss)
+        labels = tf.boolean_mask(tf.reshape(labels, (-1,)), active_loss)
+        return loss_fn(labels, reduced_logits)
+
+    def get_variables(self):
+        if not self.all_variables:  # is None, not initialized
+            self.bert_variables = self.bert.trainable_variables
+            self.num_bert = len(self.bert_variables)
+            self.normal_variables = self.classifier.trainable_variables + self.frame_map.trainable_variables + \
+                                    self.mlm.trainable_variables + self.fc.trainable_variables
+            self.all_variables = self.bert_variables + self.normal_variables
+        return self.all_variables
+
+    def optimize(self, gradients):
+        bert_gradients = gradients[:self.num_bert]
+        self.bert_optimizer.apply_gradients(zip(bert_gradients, self.bert_variables))
+        normal_gradients = gradients[self.num_bert:]
+        self.optimizer.apply_gradients(zip(normal_gradients, self.normal_variables))
+
+class Uniter_vlad(Model):
+    def __init__(self, config, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.bert = TFBertModel_MM.from_pretrained(config.bert_dir)
+        tf.print(self.bert)
+        # mlm head
+        bert_config = self.bert.config
+        self.mlm = TFBertMLMHead(bert_config, input_embeddings=self.bert.bert.embeddings, name="mlm___cls")
+
+        self.nextvlad = NeXtVLAD(768, config.vlad_cluster_size,
+                                 output_size=config.hidden_size, dropout=config.dropout)
+        # self.fusion = ConcatDenseSE(config.hidden_size, config.se_ratio)
+        self.num_labels = config.num_labels
+        self.classifier = tf.keras.layers.Dense(self.num_labels, activation='sigmoid')
+        self.frame_map = tf.keras.layers.Dense(768, activation ='relu')
+        # self.fc = tf.keras.layers.Dense(config.hidden_size)
+        self.pooling = config.uniter_pooling
+
+        self.bert_optimizer, self.bert_lr = create_optimizer(init_lr=config.bert_lr,
+                                                             num_train_steps=config.bert_total_steps,
+                                                             num_warmup_steps=config.bert_warmup_steps)
+        self.optimizer, self.lr = create_optimizer(init_lr=config.lr,
+                                                   num_train_steps=config.total_steps,
+                                                   num_warmup_steps=config.warmup_steps)
+        self.bert_variables, self.num_bert, self.normal_variables, self.all_variables = None, None, None, None
+
+    def call(self, inputs, training, **kwargs):
+        """ original
+        # image_embedding = inputs['frames']
+        # _, num_segments, _ = image_embedding.shape
+        # image_embedding = self.frame_map(image_embedding) # b,32,768
+        # frame_num = tf.reshape(inputs['num_frames'], [-1])
+        # images_mask = tf.sequence_mask(frame_num, maxlen=num_segments)
+        # images_mask = tf.cast(images_mask, tf.int32)
+        # # import pdb;pdb.set_trace()
+        # _, seq_len = inputs['input_ids'].shape
+        # bert_output = self.bert(input_ids=inputs['input_ids'], attention_mask=inputs['mask'], frame_features=image_embedding, frame_attention_mask=images_mask) # inputs have random mask
+        # sequence_output = bert_output[0]
+        # bert_embedding = bert_output[1]
+        # prediction_scores_mlm = self.mlm(sequence_output=sequence_output, training=training)[:,:seq_len]
+
+        # predictions = self.classifier(bert_embedding)
+        """
+
+        image_embedding = inputs['frames']
+        _, num_segments, _ = image_embedding.shape
+        image_embedding = self.frame_map(image_embedding) # b,32,768
+        frame_num = tf.reshape(inputs['num_frames'], [-1])
+        images_mask = tf.sequence_mask(frame_num, maxlen=num_segments)
+        images_mask = tf.cast(images_mask, tf.int32)
+        # import pdb;pdb.set_trace()
+        _, seq_len = inputs['input_ids'].shape
+        bert_output = self.bert(input_ids=inputs['input_ids'], attention_mask=inputs['mask'], frame_features=image_embedding, frame_attention_mask=images_mask) # inputs have random mask
+        sequence_output = bert_output[0] # b,32+32,768
+
+        bert_embedding = self.nextvlad([sequence_output,None])
+        prediction_scores_mlm = self.mlm(sequence_output=sequence_output, training=training)[:,:seq_len]
+
+        predictions = self.classifier(bert_embedding)
+
+        return predictions, bert_embedding, prediction_scores_mlm
+
+    def compute_loss(self, labels, logits):
+        loss_fn = tf.keras.losses.SparseCategoricalCrossentropy(
+            from_logits=True, reduction=tf.keras.losses.Reduction.NONE
+        )
+        # make sure only labels that are not equal to -100 affect the loss
+        active_loss = tf.not_equal(tf.reshape(labels, (-1,)), -100)
+        reduced_logits = tf.boolean_mask(tf.reshape(logits, (-1, shape_list(logits)[2])), active_loss)
+        labels = tf.boolean_mask(tf.reshape(labels, (-1,)), active_loss)
+        return loss_fn(labels, reduced_logits)
+
+    def get_variables(self):
+        if not self.all_variables:  # is None, not initialized
+            self.bert_variables = self.bert.trainable_variables
+            self.num_bert = len(self.bert_variables)
+            self.normal_variables = self.classifier.trainable_variables + self.frame_map.trainable_variables + \
+                                    self.mlm.trainable_variables + self.nextvlad.trainable_variables
+            self.all_variables = self.bert_variables + self.normal_variables
+        return self.all_variables
+
+    def optimize(self, gradients):
+        bert_gradients = gradients[:self.num_bert]
+        self.bert_optimizer.apply_gradients(zip(bert_gradients, self.bert_variables))
+        normal_gradients = gradients[self.num_bert:]
+        self.optimizer.apply_gradients(zip(normal_gradients, self.normal_variables))
+
+
+class Uniter_roformer(Model):
+    def __init__(self, config, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.bert = TFRoFormerModel_MM.from_pretrained(config.bert_dir)
+        tf.print(self.bert)
+        # mlm head
+        bert_config = self.bert.config
+        self.mlm = TFRoFormerMLMHead(bert_config, input_embeddings=self.bert.roformer.embeddings, name="mlm___cls")
+
+        # self.nextvlad = NeXtVLAD(config.frame_embedding_size, config.vlad_cluster_size,
+        #                          output_size=config.vlad_hidden_size, dropout=config.dropout)
+        # self.fusion = ConcatDenseSE(config.hidden_size, config.se_ratio)
+        self.num_labels = config.num_labels
+        self.classifier = tf.keras.layers.Dense(self.num_labels, activation='sigmoid')
+        self.frame_map = tf.keras.layers.Dense(768, activation ='relu')
+        self.fc = tf.keras.layers.Dense(config.hidden_size)
+        self.pooling = config.uniter_pooling
+
+        self.bert_optimizer, self.bert_lr = create_optimizer(init_lr=config.bert_lr,
+                                                             num_train_steps=config.bert_total_steps,
+                                                             num_warmup_steps=config.bert_warmup_steps)
+        self.optimizer, self.lr = create_optimizer(init_lr=config.lr,
+                                                   num_train_steps=config.total_steps,
+                                                   num_warmup_steps=config.warmup_steps)
+        self.bert_variables, self.num_bert, self.normal_variables, self.all_variables = None, None, None, None
+
+    def call(self, inputs, training, **kwargs):
+        """ original
+        # image_embedding = inputs['frames']
+        # _, num_segments, _ = image_embedding.shape
+        # image_embedding = self.frame_map(image_embedding) # b,32,768
+        # frame_num = tf.reshape(inputs['num_frames'], [-1])
+        # images_mask = tf.sequence_mask(frame_num, maxlen=num_segments)
+        # images_mask = tf.cast(images_mask, tf.int32)
+        # # import pdb;pdb.set_trace()
+        # _, seq_len = inputs['input_ids'].shape
+        # bert_output = self.bert(input_ids=inputs['input_ids'], attention_mask=inputs['mask'], frame_features=image_embedding, frame_attention_mask=images_mask) # inputs have random mask
+        # sequence_output = bert_output[0]
+        # bert_embedding = bert_output[1]
+        # prediction_scores_mlm = self.mlm(sequence_output=sequence_output, training=training)[:,:seq_len]
+
+        # predictions = self.classifier(bert_embedding)
+        """
+
+        image_embedding = inputs['frames']
+        _, num_segments, _ = image_embedding.shape
+        image_embedding = self.frame_map(image_embedding) # b,32,768
+        frame_num = tf.reshape(inputs['num_frames'], [-1])
+        images_mask = tf.sequence_mask(frame_num, maxlen=num_segments)
+        images_mask = tf.cast(images_mask, tf.int32)
+        # import pdb;pdb.set_trace()
+        _, seq_len = inputs['input_ids'].shape
+        bert_output = self.bert(input_ids=inputs['input_ids'], attention_mask=inputs['mask'], frame_features=image_embedding, frame_attention_mask=images_mask) # inputs have random mask
+        sequence_output = bert_output[0]
+        sequence_output = self.fc(sequence_output)
+        if self.pooling == 'cls':
+            bert_embedding = sequence_output[:,0]
+        elif self.pooling == 'mean':
+            bert_embedding = tf.reduce_mean(sequence_output, 1)
+        elif self.pooling == 'max':
+            text_mask = 1-tf.cast(inputs['mask'], tf.int32)
+            neg_mask = tf.concat([text_mask, 1-images_mask], 1)
+            super_neg = tf.expand_dims(tf.cast(neg_mask, tf.float32), axis=2) * -1000
+            bert_embedding = tf.reduce_max(sequence_output + super_neg, 1)
+        prediction_scores_mlm = self.mlm(sequence_output=sequence_output, training=training)[:,:seq_len]
+
+        predictions = self.classifier(bert_embedding)
+
+        return predictions, bert_embedding, prediction_scores_mlm
+    
     def compute_loss(self, labels, logits):
         loss_fn = tf.keras.losses.SparseCategoricalCrossentropy(
             from_logits=True, reduction=tf.keras.losses.Reduction.NONE
