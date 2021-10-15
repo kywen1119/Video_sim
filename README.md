@@ -4,11 +4,11 @@
 #### Final score: 82.8307 on test_b.
 
 #### 1. 模型总览
-我们的最终结果由6个模型的ensemble组成，先在开头概述这6个模型：
+我们的最终结果由6个模型的ensemble组成，先在开头概述这6个模型：(test_a上的结果)
  <table>
         <tr>
             <th>Model</th>
-            <th>test</th>
+            <th>single-model</th>
             <th>10fold</th>
             <th>weight</th>
         </tr>
@@ -50,6 +50,8 @@
         </tr>
     </table>
 
+虽然MixNextvlad单模型会搞一些，但是10fold之后Uniter模型应该会好一些，因为观察到MixNextvlad模型生成的结果由许多0.
+
 #### 2. 模型介绍
 主要使用了两种模型，第一种是基于baseline改进的MixNextvald，在[1]中提出；第二种是基于transformer的Uniter [2]模型。 
 
@@ -77,10 +79,10 @@
 ##### 针对finetune
 1. 使用11-fold-cross-validation：将pairwise的数据分成11份，每次用一份进行验证，这样同一个模型可以训11个模型，最终embedding取平均。
 2. finetune时使用三个损失函数，包括：mse loss （直接优化similarity）、KL loss （优化模型得到的sim和label sim的分布差距）、tag loss （也就是预训练的多标签分类loss）。单独使用mse会过拟合，增加后两个之后可以有效缓解。
-3. 训练轮次不宜过多，我们128的batch size只需要训练 3000-4000 steps。
+3. 训练轮次不宜过多，我们128的batch size只需要训练 3000或4000 steps。
 
 #### 4. 如何复现？
-所有实验在一块3090上完成。
+所有实验在一块3090上完成。（mixnextvlad模型在1080ti也可以跑，batch调小一些）
 环境： 
 
 python==3.8.0
@@ -90,7 +92,8 @@ tensorflow==2.5.0
 transformers    
 
 ##### 4.1 数据准备
-生成pair对的tfrecord，且有11个文件（11-fold-cross-validation）
+1. 下载data并解压至 Video_sim 文件夹中 （包括test_b）
+2. 生成pair对的tfrecord，且有11个文件（11-fold-cross-validation）
 ```bash
   python write_tfrecord.py
 ```
@@ -111,7 +114,16 @@ transformers
 |   |   ├── 60000-65999val/
 ```
 
-##### 4.2 模型预训练
+##### 4.2 直接测试（通过现有的ckpt得到最终的结果）
+先下载final_save，mv至Video_sim文件夹中，然后直接运行run.sh文件.
+该sh会运行所有模型的inference，包括6个模型的11-fold，然后对所有embedding进行一个加权的ensemble。
+最后输出为 result_10_b.zip
+
+```bash
+sh run.sh
+```
+
+##### 4.3 模型预训练
 + Pre-Train on MixNextvlad models:
     + MixNextvlad:
     ```bash
@@ -139,20 +151,40 @@ transformers
     python cqrtrain_mlm_mm_tag_roformer.py --batch-size 210 --savedmodel-path save/uniter_roformer --uniter-pooling mean --bert-dir junnyu/roformer_chinese_base 
     ```
     
-##### 4.3 模型finetune
+##### 4.4 模型finetune
 注意！在训练ASL的时候有可能会出现NAN，这种情况需要重跑一次相应的模型.
 建议每次只跑sh文件里面的一个模型，把其他的注释掉，这样方便debug。
 ```bash
 sh finetune_all.sh
 ```
 
-##### 4.4 模型inference
+如何训练单模型？
+
+详见finetune_all.sh，里面有6个模型的单模型训练命令。
+
+例子：
+
+```bash
+python train_pair_mix.py --batch-size 128  --savedmodel-path save/10fold/10fold_1_mix --pretrain_model_dir save/mix --kl-weight 0.5 --total-steps 4000 --train-record-pattern data/pairwise/0-5999val/train.tfrecord --val-record-pattern data/pairwise/0-5999val/val.tfrecord
+```
+
+##### 4.5 模型inference
 建议每次只跑sh文件里面的一个模型，把其他的注释掉，这样方便debug。
+
 ```bash
 sh infer_all.sh
 ```
 
-##### 4.5 ensemble
+如何测试单模型？
+
+例子：
+```bash
+python inference_pair_b.py --ckpt-file save/10fold/10fold_1_mix/ckpt-4012 --output-zip 10fold_b_zip/10fold_1_mix.zip 
+```
+
+
+##### 4.6 ensemble
+6个10fold的模型得到的embedding进行加权求和。
 ```bash
 python ensemble_final.py
 ```

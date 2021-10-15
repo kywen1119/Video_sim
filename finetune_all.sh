@@ -39,7 +39,7 @@ CUDA_VISIBLE_DEVICES=0 python train_pair_mix_asl.py --batch-size 128  --savedmod
 echo fold7! 36000-41999val
 CUDA_VISIBLE_DEVICES=0 python train_pair_mix_asl.py --batch-size 128  --savedmodel-path save/10fold/10fold_7_mix_asl --pretrain_model_dir save/mix_asl --kl-weight 0.5 --total-steps 3000 --train-record-pattern data/pairwise/36000-41999val/train.tfrecord --val-record-pattern data/pairwise/36000-41999val/val.tfrecord
 echo fold8! 42000-47999val
-CUDA_VISIBLE_DEVICES=0 python train_pair_mix_asl.py --batch-size 128  --savedmodel-path save/10fold_8_mix_asl --pretrain_model_dir save/mix_asl --kl-weight 0.5 --total-steps 3000 --train-record-pattern data/pairwise/42000-47999val/train.tfrecord --val-record-pattern data/pairwise/42000-47999val/val.tfrecord
+CUDA_VISIBLE_DEVICES=0 python train_pair_mix_asl.py --batch-size 128  --savedmodel-path save/10fold/10fold_8_mix_asl --pretrain_model_dir save/mix_asl --kl-weight 0.5 --total-steps 3000 --train-record-pattern data/pairwise/42000-47999val/train.tfrecord --val-record-pattern data/pairwise/42000-47999val/val.tfrecord
 echo fold9! 48000-53999val
 CUDA_VISIBLE_DEVICES=0 python train_pair_mix_asl.py --batch-size 128  --savedmodel-path save/10fold/10fold_9_mix_asl --pretrain_model_dir save/mix_asl --kl-weight 0.5 --total-steps 3000 --train-record-pattern data/pairwise/48000-53999val/train.tfrecord --val-record-pattern data/pairwise/48000-53999val/val.tfrecord
 echo fold10! 54000-59999val
@@ -59,7 +59,7 @@ CUDA_VISIBLE_DEVICES=0 python train_pair_mix_roformer.py --bert-dir junnyu/rofor
 echo fold5! 24000-29999val
 CUDA_VISIBLE_DEVICES=0 python train_pair_mix_roformer.py --bert-dir junnyu/roformer_chinese_base --batch-size 128  --savedmodel-path save/10fold/10fold_5_mix_roformer --pretrain_model_dir save/mix_roformer --kl-weight 0.5 --total-steps 4000 --train-record-pattern data/pairwise/24000-29999val/train.tfrecord --val-record-pattern data/pairwise/24000-29999val/val.tfrecord
 echo fold6! 30000-35999val
-CUDA_VISIBLE_DEVICES=0 python train_pair_mix_roformer.py --bert-dir junnyu/roformer_chinese_base --batch-size 128  --savedmodel-path save/10fold_6_mix_roformer --pretrain_model_dir save/mix_roformer --kl-weight 0.5 --total-steps 4000 --train-record-pattern data/pairwise/30000-35999val/train.tfrecord --val-record-pattern data/pairwise/30000-35999val/val.tfrecord
+CUDA_VISIBLE_DEVICES=0 python train_pair_mix_roformer.py --bert-dir junnyu/roformer_chinese_base --batch-size 128  --savedmodel-path save/10fold/10fold_6_mix_roformer --pretrain_model_dir save/mix_roformer --kl-weight 0.5 --total-steps 4000 --train-record-pattern data/pairwise/30000-35999val/train.tfrecord --val-record-pattern data/pairwise/30000-35999val/val.tfrecord
 echo fold7! 36000-41999val
 CUDA_VISIBLE_DEVICES=0 python train_pair_mix_roformer.py --bert-dir junnyu/roformer_chinese_base --batch-size 128  --savedmodel-path save/10fold/10fold_7_mix_roformer --pretrain_model_dir save/mix_roformer --kl-weight 0.5 --total-steps 4000 --train-record-pattern data/pairwise/36000-41999val/train.tfrecord --val-record-pattern data/pairwise/36000-41999val/val.tfrecord
 echo fold8! 42000-47999val

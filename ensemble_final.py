@@ -165,7 +165,7 @@ def uniter_asl():
         vid_emb_2 = json.load(f)
     with open('10fold_b_json/10fold_3_uniter_asl.json', 'r') as f:
         vid_emb_3 = json.load(f)
-    with open('10fold_b_json/10fold_4_uniter.json', 'r') as f:
+    with open('10fold_b_json/10fold_4_uniter_asl.json', 'r') as f:
         vid_emb_4 = json.load(f)
     with open('10fold_b_json/10fold_5_uniter_asl.json', 'r') as f:
         vid_emb_5 = json.load(f)
@@ -225,10 +225,7 @@ def uniter_roformer():
                         np.array(vid_emb_3[key]) + np.array(vid_emb_4[key]) + \
                         np.array(vid_emb_5[key]) + np.array(vid_emb_6[key]) + \
                         np.array(vid_emb_7[key]) + np.array(vid_emb_8[key]) + \
-                        np.array(vid_emb_9[key]) + np.array(vid_emb_10[key]) + np.array(vid_emb_11[key]))/11).tolist() # 
-                        
-        # print(len(out_emb[key]))
-        # exit()
+                        np.array(vid_emb_9[key]) + np.array(vid_emb_10[key]) + np.array(vid_emb_11[key]))/11).tolist() 
     with open(output_json, 'w') as f:
         json.dump(out_emb, f)
     with ZipFile(output_zip, 'w', compression=ZIP_DEFLATED) as zip_file:
@@ -256,7 +253,7 @@ def ten():
         out_emb[key] = (0.17*np.array(vid_emb_1[key]) + \
                         0.2*np.array(vid_emb_2[key]) + 0.13*np.array(vid_emb_3[key]) +\
                         0.13*np.array(vid_emb_4[key])+0.2*np.array(vid_emb_5[key]) + \
-                        0.17*np.array(vid_emb_6[key])).tolist() # 0.8
+                        0.17*np.array(vid_emb_6[key])).tolist() 
     with open(output_json, 'w') as f:
         json.dump(out_emb, f)
     with ZipFile(output_zip, 'w', compression=ZIP_DEFLATED) as zip_file:
