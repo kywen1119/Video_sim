@@ -52,8 +52,8 @@ def mix_asl():
         vid_emb_2 = json.load(f)
     with open('10fold_b_json/10fold_3_mix_asl.json', 'r') as f:
         vid_emb_3 = json.load(f)
-    with open('10fold_b_json/10fold_4_mix_asl.json', 'r') as f:
-        vid_emb_4 = json.load(f)
+    # with open('10fold_b_json/10fold_4_mix_asl.json', 'r') as f:
+    #     vid_emb_4 = json.load(f)
     with open('10fold_b_json/10fold_5_mix_asl.json', 'r') as f:
         vid_emb_5 = json.load(f)
     with open('10fold_b_json/10fold_6_mix_asl.json', 'r') as f:
@@ -62,17 +62,21 @@ def mix_asl():
         vid_emb_7 = json.load(f)
     with open('10fold_b_json/10fold_8_mix_asl.json', 'r') as f:
         vid_emb_8 = json.load(f)
-    with open('10fold_b_json/10fold_9_mix_asl.json', 'r') as f:
-        vid_emb_9 = json.load(f)
+    # with open('10fold_b_json/10fold_9_mix_asl.json', 'r') as f:
+    #     vid_emb_9 = json.load(f)
     with open('10fold_b_json/10fold_10_mix_asl.json', 'r') as f:
         vid_emb_10 = json.load(f)
-    with open('10fold_b_json/10fold_11_mix_asl.json', 'r') as f:
-        vid_emb_11 = json.load(f)
+    # with open('10fold_b_json/10fold_11_mix_asl.json', 'r') as f:
+    #     vid_emb_11 = json.load(f)
     for key in vid_emb_1:
         out_emb[key] = ((np.array(vid_emb_1[key]) + np.array(vid_emb_2[key]) + np.array(vid_emb_3[key]) + \
-                        np.array(vid_emb_4[key]) + np.array(vid_emb_5[key])+ np.array(vid_emb_6[key]) + \
-                        np.array(vid_emb_7[key]) + np.array(vid_emb_8[key]) + np.array(vid_emb_9[key]) + \
-                        np.array(vid_emb_10[key]) + np.array(vid_emb_11[key]))/11).tolist()
+                        np.array(vid_emb_5[key])+ np.array(vid_emb_6[key]) + \
+                        np.array(vid_emb_7[key]) + np.array(vid_emb_8[key]) + \
+                        np.array(vid_emb_10[key]))/8).tolist()
+        # out_emb[key] = ((np.array(vid_emb_1[key]) + np.array(vid_emb_2[key]) + np.array(vid_emb_3[key]) + \
+        #                 np.array(vid_emb_4[key]) + np.array(vid_emb_5[key])+ np.array(vid_emb_6[key]) + \
+        #                 np.array(vid_emb_7[key]) + np.array(vid_emb_8[key]) + np.array(vid_emb_9[key]) + \
+        #                 np.array(vid_emb_10[key]) + np.array(vid_emb_11[key]))/11).tolist()
     with open(output_json, 'w') as f:
         json.dump(out_emb, f)
     with ZipFile(output_zip, 'w', compression=ZIP_DEFLATED) as zip_file:
@@ -261,11 +265,19 @@ def ten():
 
 
 if __name__ == '__main__':
-    os.mkdir('10_b')
+    if not os.path.exists('10_b'):
+        os.mkdir('10_b')
+    print('10fold mix')
     mix()
+    print('10fold mix_asl')
     mix_asl()
+    print('10fold mix_roformer')
     mix_roformer()
+    print('10fold uniter')
     uniter()
+    print('10fold uniter_asl')
     uniter_asl()
+    print('10fold uniter_roformer')
     uniter_roformer()
+    print('6 model ensemble')
     ten()
