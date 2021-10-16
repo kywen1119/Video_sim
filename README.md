@@ -50,7 +50,7 @@
         </tr>
     </table>
 
-虽然MixNextvlad单模型会搞一些，但是10fold之后Uniter模型应该会好一些，因为观察到MixNextvlad模型生成的结果由许多0.
+虽然MixNextvlad单模型会高一些，但是10fold之后Uniter模型应该会好一些，因为观察到MixNextvlad模型生成的结果由许多0.
 
 #### 2. 模型介绍
 主要使用了两种模型，第一种是基于baseline改进的MixNextvald，在[1]中提出；第二种是基于transformer的Uniter [2]模型。 
@@ -61,6 +61,15 @@
 
 ##### 2.2 Uniter
 如图，视频的帧feature和句子的单词embedding经过concat之后送入bert-encoder，输出的features取平均得到最后的embedding。使用该模型时预训练任务增加了MLM（masked language modeling），只对文本进行mask，然后通过上下文的文本和图像特征共同进行MLM。
+
+细解：
+
+模型：视频帧feature+word embedding concat之后送入12层的预训练bert & roformer，得到的features取mean。
+
+pretrain：最终的embedding经过cls层进行tag id的多标签分类；对输入word进行15%的随机mask，然后在输出端预测这些mask的单词（MLM）。
+
+finetune：不再mask，直接用图像特征和文本作为输入，得到mean pooling之后的256维向量，pair计算sim后和标签算mse。
+
 <img src="./img/uniter.png" width = "100%" height="50%">
 
 ##### 2.3 ASL
@@ -71,6 +80,8 @@
 
 #### 3. 一些tricks
 总体来说：先进性pretrain（多标签分类 or MLM），再进行finetune （MSE）.
+
+NextVLAD里面的bn层不能注释掉（baseline中注释掉了）
 
 ##### 针对预训练
 1. 替换原来的bert model，baseline中的是bert-uncased-chinese，更换成更好的chinese-roberta-wwm-ext；或者更换为roformer_chinese_base。
@@ -123,6 +134,12 @@ transformers
 sh run.sh
 ```
 
+PS：如果只想测试一个模型的话，以MixNextvlad为例，那只需要下载一个 final_save/10fold_1_mix, 然后运行：
+
+```bash
+python inference_pair_b.py --ckpt-file final_save/10fold_1_mix/ckpt-4014 --output-zip 10fold_b_zip/10fold_1_mix.zip
+```
+
 ##### 4.3 模型预训练
 + Pre-Train on MixNextvlad models:
     + MixNextvlad:
@@ -167,6 +184,8 @@ sh finetune_all.sh
 ```bash
 python train_pair_mix.py --batch-size 128  --savedmodel-path save/10fold/10fold_1_mix --pretrain_model_dir save/mix --kl-weight 0.5 --total-steps 4000 --train-record-pattern data/pairwise/0-5999val/train.tfrecord --val-record-pattern data/pairwise/0-5999val/val.tfrecord
 ```
+
+参数解释：pretrain_model_dir：load的预训练模型的路径 （mix/mix_asl/mix_roformer/uniter/uniter_asl/uniter_roformer）
 
 ##### 4.5 模型inference
 建议每次只跑sh文件里面的一个模型，把其他的注释掉，这样方便debug。

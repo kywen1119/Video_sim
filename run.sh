@@ -1,7 +1,7 @@
-"""
-对所有ckpt进行预测，直接得到所有模型的json，再进行ensemble，总共包含：
-6个模型，每个模型是11-fold的训练，其中MixNextvlad_ASL只有8个模型，总共63个模型
-"""
+# """
+# 对所有ckpt进行预测，直接得到所有模型的json，再进行ensemble，总共包含：
+# 6个模型，每个模型是11-fold的训练，其中MixNextvlad_ASL只有8个模型，总共63个模型
+# """
 
 mkdir 10fold_b_json
 mkdir 10fold_b_zip
