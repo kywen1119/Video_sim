@@ -1,4 +1,5 @@
 import tensorflow as tf
+import os
 
 
 feature_description = { # 定义Feature结构，告诉解码器每个Feature的类型是什么
@@ -80,6 +81,8 @@ for i in range(11):
     from tqdm import tqdm
 
     def write_tfrecord(pair_datas, split):
+        if not os.path.exists('data/pairwise/'+save_path[i]):
+            os.mkdir('data/pairwise/'+save_path[i])
         write_path = 'data/pairwise/'+save_path[i]+'/'+split+'.tfrecord' # 61899
         writer = tf.io.TFRecordWriter(write_path) 
         for pair_data in tqdm(pair_datas): # [id_1, id_2, sim] [str, str, float]
@@ -114,6 +117,6 @@ for i in range(11):
             writer.write(example.SerializeToString()) 
         writer.close()
 
-
+    print('write %d th fold.' % i)
     write_tfrecord(val_pair_data, 'val')
     write_tfrecord(train_pair_data, 'train')
