@@ -32,9 +32,32 @@
         </tr>
         <tr>
             <th>Uniter</th>
-            <th>80.2</th>
+            <th>80.3</th>
             <th>81.4</th>
             <th>0.13</th>
+        </tr>
+        <tr>
+            <th>Uniter_ASL</th>
+            <th>80.7</th>
+            <th>x</th>
+            <th>0.2</th>
+        </tr>
+        <tr>
+            <th>Uniter_roformer</th>
+            <th>80.2</th>
+            <th>x</th>
+            <th>0.17</th>
+        </tr>
+    </table>
+
+部分test_b的结果：
+
+<table>
+        <tr>
+            <th>Model</th>
+            <th>single-model</th>
+            <th>10fold</th>
+            <th>weight</th>
         </tr>
         <tr>
             <th>Uniter_ASL</th>
@@ -45,7 +68,7 @@
         <tr>
             <th>Uniter_roformer</th>
             <th>80.1</th>
-            <th>x</th>
+            <th>81.6</th>
             <th>0.17</th>
         </tr>
     </table>
