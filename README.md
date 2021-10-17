@@ -37,8 +37,14 @@
             <th>0.13</th>
         </tr>
         <tr>
+            <th>Uniter</th>
+            <th>x</th>
+            <th>81.4</th>
+            <th>0.13</th>
+        </tr>
+        <tr>
             <th>Uniter_ASL</th>
-            <th>80.7</th>
+            <th>80.6</th>
             <th>x</th>
             <th>0.2</th>
         </tr>
