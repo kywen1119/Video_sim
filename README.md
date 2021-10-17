@@ -37,12 +37,6 @@
             <th>0.13</th>
         </tr>
         <tr>
-            <th>Uniter</th>
-            <th>x</th>
-            <th>81.4</th>
-            <th>0.13</th>
-        </tr>
-        <tr>
             <th>Uniter_ASL</th>
             <th>80.6</th>
             <th>x</th>
@@ -64,6 +58,12 @@
             <th>single-model</th>
             <th>10fold</th>
             <th>weight</th>
+        </tr>
+        <tr>
+            <th>Uniter</th>
+            <th>x</th>
+            <th>81.4</th>
+            <th>0.13</th>
         </tr>
         <tr>
             <th>Uniter_ASL</th>
