@@ -1,5 +1,6 @@
 ### [Multimodal Video Similarity Challenge](https://algo.browser.qq.com/)
 #### [@CIKM 2021](https://www.cikm2021.org/analyticup) 
+#### 第四名解决方案
 #### Implementation source codes of team <618大庆神!>.
 #### Final score: 82.8307 on test_b.
 
