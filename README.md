@@ -156,7 +156,7 @@ transformers
 ```
 
 ##### 4.2 直接测试（通过现有的ckpt得到最终的结果）
-先下载final_save，mv至Video_sim文件夹中，然后直接运行run.sh文件.
+先下载final_save [这个不方便给出]，mv至Video_sim文件夹中，然后直接运行run.sh文件.
 该sh会运行所有模型的inference，包括6个模型的11-fold，然后对所有embedding进行一个加权的ensemble。
 最后输出为 result_10_b.zip
 
